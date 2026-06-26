@@ -4,7 +4,7 @@
 MODULE_NAME = github.com/EduGoGroup/wapp-shared
 
 # Versiones fijadas del toolchain de CI (deben coincidir con .github/workflows/ci.yml)
-GO_VERSION   := 1.25
+GO_VERSION   := 1.26
 LINT_VERSION := v2.4.0
 
 MODULES_L0 := $(shell ./scripts/list-modules.sh --set level-0 | tr '\n' ' ')

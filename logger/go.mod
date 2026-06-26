@@ -1,3 +1,3 @@
 module github.com/EduGoGroup/wapp-shared/logger
 
-go 1.25
+go 1.26.0
