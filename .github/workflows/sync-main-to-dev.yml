@@ -1,0 +1,92 @@
+name: Sync Main to Dev
+
+# Tras cada push a main, recrea/sincroniza dev desde main (merge real) para que
+# main y dev terminen con el MISMO contenido. Ver docs/runbooks/despliegue-y-release.md §2.
+# Caveat: un push hecho con el GITHUB_TOKEN nativo NO dispara este workflow (anti-recursion);
+# en ese caso hay que sincronizar dev a mano.
+on:
+  push:
+    branches: [main]
+    tags:
+      - '*/v*'
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sincronizar main → dev
+    runs-on: ubuntu-latest
+    # Evitar loops: no re-sincronizar sobre un commit de sincronizacion.
+    if: "!contains(github.event.head_commit.message, 'chore: sync')"
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Verificar si dev existe
+        id: check_dev
+        run: |
+          if git ls-remote --heads origin dev | grep -q dev; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Rama dev existe"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Rama dev no existe, se creará"
+          fi
+
+      - name: Crear rama dev si no existe
+        if: steps.check_dev.outputs.exists == 'false'
+        run: |
+          git checkout -b dev
+          git push -u origin dev
+          echo "✓ Rama dev creada desde main"
+
+      - name: Verificar si hay commits en main que dev no tiene
+        id: check_diff
+        run: |
+          git fetch origin dev
+          COMMITS_AHEAD=$(git rev-list --count origin/dev..origin/main)
+          if [ "$COMMITS_AHEAD" -eq 0 ]; then
+            echo "has_diff=false" >> $GITHUB_OUTPUT
+            echo "✓ main y dev ya están sincronizados"
+          else
+            echo "has_diff=true" >> $GITHUB_OUTPUT
+            echo "⚠️  main tiene $COMMITS_AHEAD commits que dev no tiene:"
+            git log --oneline origin/dev..origin/main
+          fi
+
+      - name: Merge main → dev (con manejo de conflictos)
+        if: steps.check_diff.outputs.has_diff == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout dev
+          git pull origin dev
+          echo "🔄 Intentando merge de main a dev..."
+          if git merge origin/main --no-ff -m "chore: sync main to dev
+
+          Sincronización automática de main a dev tras cambios en main.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)"; then
+            git push origin dev
+            echo "✅ Sincronización exitosa: main → dev"
+          else
+            echo "::error::Conflictos en merge main → dev; requieren resolución manual"
+            git status --short
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Resumen
+        run: |
+          echo "# 🔄 Sincronización Main → Dev" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Aspecto | Estado |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama dev existe | ${{ steps.check_dev.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Diferencias | ${{ steps.check_diff.outputs.has_diff }} |" >> $GITHUB_STEP_SUMMARY
