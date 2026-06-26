@@ -1,0 +1,3 @@
+# module|level|integration|coverage_validation
+logger|0|false|true
+config|0|false|true

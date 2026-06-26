@@ -1,0 +1,201 @@
+name: Release CI/CD
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '*/v*'
+      - '*/*/v*'
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.meta.outputs.matrix }}
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      module: ${{ steps.meta.outputs.module }}
+      title: ${{ steps.meta.outputs.title }}
+      changelog_file: ${{ steps.meta.outputs.changelog_file }}
+      scope: ${{ steps.meta.outputs.scope }}
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver metadata de release
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG##*/}"
+
+          if [[ "$TAG" == v* ]]; then
+            echo "scope=root" >> "$GITHUB_OUTPUT"
+            echo "module=" >> "$GITHUB_OUTPUT"
+            echo "title=Release $TAG" >> "$GITHUB_OUTPUT"
+            echo "changelog_file=CHANGELOG.md" >> "$GITHUB_OUTPUT"
+            echo "matrix=$(./scripts/list-modules.sh --set release --format json)" >> "$GITHUB_OUTPUT"
+          else
+            MODULE="${TAG%/$VERSION}"
+            echo "scope=module" >> "$GITHUB_OUTPUT"
+            echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+            echo "title=Release $MODULE $VERSION" >> "$GITHUB_OUTPUT"
+            echo "changelog_file=$MODULE/CHANGELOG.md" >> "$GITHUB_OUTPUT"
+            printf 'matrix=["%s"]\n' "$MODULE" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  validate-modules:
+    name: Validate ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    strategy:
+      fail-fast: true
+      matrix:
+        module: ${{ fromJson(needs.prepare-release.outputs.matrix) }}
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Descargar dependencias
+        working-directory: ${{ matrix.module }}
+        run: go mod download
+
+      - name: Verificar formato
+        working-directory: ${{ matrix.module }}
+        run: |
+          if ! gofmt -l . | grep -q .; then
+            echo "Codigo formateado correctamente"
+          else
+            echo "Codigo no esta formateado:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Analisis estatico (go vet)
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+
+      - name: Ejecutar tests
+        working-directory: ${{ matrix.module }}
+        run: go test -short -v -race ./...
+
+      - name: Tests con cobertura
+        working-directory: ${{ matrix.module }}
+        run: |
+          mkdir -p coverage
+          go test -short -v -race -coverprofile=coverage/coverage.out -covermode=atomic ./...
+          if [ -f coverage/coverage.out ]; then
+            go tool cover -func=coverage/coverage.out | tail -1
+          fi
+
+      - name: Verificar build
+        working-directory: ${{ matrix.module }}
+        run: go build -v ./...
+
+      - name: Subir cobertura
+        uses: codecov/codecov-action@v5
+        if: success()
+        with:
+          file: ${{ matrix.module }}/coverage/coverage.out
+          flags: ${{ matrix.module }}
+          name: codecov-release-${{ matrix.module }}
+          fail_ci_if_error: false
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, validate-modules]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extraer changelog para esta version
+        env:
+          CHANGELOG_FILE: ${{ needs.prepare-release.outputs.changelog_file }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          if ./scripts/extract-changelog-section.sh --file "$CHANGELOG_FILE" --version "$VERSION" > /tmp/changelog.md; then
+            echo "Notas de release extraidas desde $CHANGELOG_FILE"
+          else
+            echo "## [${VERSION#v}]" > /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            if [ -n "${{ needs.prepare-release.outputs.module }}" ]; then
+              echo "Release del modulo ${{ needs.prepare-release.outputs.module }}." >> /tmp/changelog.md
+            else
+              echo "Release ${{ needs.prepare-release.outputs.tag }}." >> /tmp/changelog.md
+            fi
+          fi
+
+      - name: Crear GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+          TITLE: ${{ needs.prepare-release.outputs.title }}
+          SCOPE: ${{ needs.prepare-release.outputs.scope }}
+          MODULE: ${{ needs.prepare-release.outputs.module }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          NOTES_FILE=/tmp/changelog.md
+          EXTRA_NOTES=$(mktemp)
+
+          # Nota: se usan echo en lugar de heredoc para evitar el conflicto
+          # entre la indentación YAML y los delimitadores de heredoc bash.
+          if [ "$SCOPE" = "module" ]; then
+            {
+              echo ""
+              echo "---"
+              echo ""
+              echo "## Instalacion del modulo"
+              echo ""
+              echo '```bash'
+              echo "go get github.com/EduGoGroup/wapp-shared/$MODULE@$VERSION"
+              echo '```'
+              echo ""
+              echo "## Documentacion relacionada"
+              echo ""
+              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/README.md"
+              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/docs/README.md"
+              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/CHANGELOG.md"
+            } > "$EXTRA_NOTES"
+          else
+            {
+              echo ""
+              echo "---"
+              echo ""
+              echo "## Documentacion relacionada"
+              echo ""
+              echo "- https://github.com/$REPO/blob/$TAG/README.md"
+              echo "- https://github.com/$REPO/blob/$TAG/docs/README.md"
+              echo "- https://github.com/$REPO/blob/$TAG/CHANGELOG.md"
+            } > "$EXTRA_NOTES"
+          fi
+
+          cat "$EXTRA_NOTES" >> "$NOTES_FILE"
+
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            --notes-file "$NOTES_FILE" \
+            --verify-tag

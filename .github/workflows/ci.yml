@@ -1,0 +1,167 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main]
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Prepara la matriz de módulos a validar.
+  #
+  # Lógica de scope:
+  #   PR → dev  : solo los módulos con archivos modificados en el PR
+  #               (si cambian scripts/, Makefile o .github/ → todos)
+  #   PR → main : todos los módulos (máxima seguridad antes de merge)
+  #   push main : todos los módulos
+  # ──────────────────────────────────────────────────────────────
+  prepare-modules:
+    name: Prepare Module Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      target:      ${{ steps.scope.outputs.target }}
+      integration: ${{ steps.modules.outputs.integration }}
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Exportar modulos
+        id: modules
+        run: |
+          echo "integration=$(./scripts/list-modules.sh --set integration --format json)" >> "$GITHUB_OUTPUT"
+
+      - name: Determinar modulos objetivo
+        id: scope
+        run: |
+          ALL_JSON=$(./scripts/list-modules.sh --set all --format json)
+
+          # Solo para PRs a dev aplicamos el filtro de módulos modificados
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "dev" ]]; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+
+            # Si cambian archivos globales, correr todos los módulos
+            if echo "$CHANGED" | grep -qE "^(Makefile|scripts/|\.github/)"; then
+              echo "Cambios globales detectados → corriendo todos los módulos"
+              echo "target=$ALL_JSON" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            ALL_MODULES=$(./scripts/list-modules.sh --set all)
+            HITS=()
+            while IFS= read -r m; do
+              if echo "$CHANGED" | grep -q "^${m}/"; then
+                HITS+=("\"$m\"")
+              fi
+            done <<< "$ALL_MODULES"
+
+            if [ ${#HITS[@]} -eq 0 ]; then
+              echo "Sin módulos con cambios detectados → corriendo todos como fallback"
+              echo "target=$ALL_JSON" >> "$GITHUB_OUTPUT"
+            else
+              TARGET="[$(IFS=,; echo "${HITS[*]}")]"
+              echo "Módulos con cambios: $TARGET"
+              echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "target=$ALL_JSON" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  # Optimizaciones aplicadas respecto al pipeline anterior:
+  #
+  #   1. test + lint unificados en un solo job por módulo
+  #      → elimina el doble overhead de checkout/setup-go/mod-download
+  #
+  #   2. Solo módulos modificados para PRs a dev (ver prepare-modules)
+  #      → PRs cotidianas validan solo lo necesario
+  #
+  #   3. Cache de go mod compartido dentro del mismo job
+  #      → go mod download se ejecuta una sola vez por módulo/runner
+  #
+  #   4. go build eliminado (go test ya compila; golangci-lint también)
+  # ──────────────────────────────────────────────────────────────
+  validate:
+    name: Validate ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: prepare-modules
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.prepare-modules.outputs.target) }}
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Descargar dependencias
+        working-directory: ${{ matrix.module }}
+        run: go mod download
+
+      - name: Verificar formato
+        working-directory: ${{ matrix.module }}
+        run: |
+          if ! gofmt -l . | grep -q .; then
+            echo "Codigo formateado correctamente"
+          else
+            echo "Codigo no esta formateado:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Analisis estatico (go vet)
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+
+      - name: Ejecutar tests con race detection
+        working-directory: ${{ matrix.module }}
+        run: go test -short -v -race ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.4.0
+          working-directory: ${{ matrix.module }}
+          args: --timeout=5m
+
+  integration:
+    name: Integration ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: prepare-modules
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.prepare-modules.outputs.integration) }}
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Descargar dependencias
+        working-directory: ${{ matrix.module }}
+        run: go mod download
+
+      - name: Ejecutar tests de integracion
+        working-directory: ${{ matrix.module }}
+        env:
+          INTEGRATION_TESTS: 'true'
+        run: go test -v -cover -timeout 10m ./...
