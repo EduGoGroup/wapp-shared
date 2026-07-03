@@ -3,3 +3,4 @@ logger|0|false|true
 config|0|false|true
 envelope|0|false|true
 health|0|false|true
+auth|0|false|true
