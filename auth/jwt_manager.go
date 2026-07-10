@@ -31,6 +31,7 @@ type JWTManager struct {
 	signKey      any // clave para firmar: []byte (HS256) o *ecdsa.PrivateKey (ES256); nil = solo validación.
 	verifyKey    any // clave para validar: []byte (HS256) o *ecdsa.PublicKey (ES256).
 	validMethods []string
+	kid          string // si no está vacío, se estampa como header `kid` al emitir (para selección por MultiVerifier).
 }
 
 // NewJWTManager crea un JWTManager HS256 con el secreto y el issuer esperado.
@@ -77,6 +78,18 @@ func NewJWTVerifierES256(publicKey *ecdsa.PublicKey, issuer string) (*JWTManager
 		verifyKey:    publicKey,
 		validMethods: []string{jwt.SigningMethodES256.Alg()},
 	}, nil
+}
+
+// WithKid devuelve una copia del manager que estampa el header `kid` indicado en
+// cada token que emita (ver [JWTManager.GenerateToken]). El `kid` permite al
+// [MultiVerifier] seleccionar la llave de verificación por token durante la
+// rotación/coexistencia de algoritmos (ADR-0019). Es aditivo: no altera la
+// firma ni los claims, y funciona con cualquier algoritmo del manager. Un `kid`
+// vacío deja el manager sin estampar (equivalente al original).
+func (m *JWTManager) WithKid(kid string) *JWTManager {
+	clone := *m
+	clone.kid = kid
+	return &clone
 }
 
 // GenerateToken firma un access token de usuario con el algoritmo del manager.
@@ -130,6 +143,9 @@ func (m *JWTManager) GenerateToken(
 	}
 
 	token := jwt.NewWithClaims(m.method, claims)
+	if m.kid != "" {
+		token.Header["kid"] = m.kid
+	}
 	signedToken, err := token.SignedString(m.signKey)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("no se pudo firmar el token JWT: %w", err)
