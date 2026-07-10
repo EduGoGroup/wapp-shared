@@ -136,6 +136,44 @@ jobs:
           working-directory: ${{ matrix.module }}
           args: --timeout=5m
 
+  # ──────────────────────────────────────────────────────────────
+  # Escaneo de vulnerabilidades (H1, Plan 027-Ola0).
+  #
+  # Repo con cripto (envelope) y auth (JWT/bcrypt): una CVE en x/crypto
+  # o golang-jwt debe FALLAR el pipeline. Reutiliza la misma matriz
+  # scopeada de prepare-modules para ser coherente con validate.
+  #
+  # govulncheck sale con código != 0 solo cuando la vulnerabilidad es
+  # ALCANZABLE por el código (símbolo llamado), evitando ruido por CVEs
+  # en dependencias no invocadas. Dependabot cubre el resto (.github/dependabot.yml).
+  # ──────────────────────────────────────────────────────────────
+  govulncheck:
+    name: Vulnerabilidades ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: prepare-modules
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.prepare-modules.outputs.target) }}
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Instalar govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Escaneo de vulnerabilidades
+        working-directory: ${{ matrix.module }}
+        run: govulncheck ./...
+
   integration:
     name: Integration ${{ matrix.module }}
     runs-on: ubuntu-latest

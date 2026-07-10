@@ -1,0 +1,63 @@
+# Dependabot — wapp-shared (monorepo multi-módulo)
+# H1 (Plan 027-Ola0): actualizaciones automáticas de dependencias.
+# Un entry gomod por directorio de módulo (cada uno con su go.mod/go.sum
+# independiente), con updates AGRUPADOS por módulo en un solo PR semanal.
+# Además, el ecosistema github-actions para los workflows del CI.
+version: 2
+
+updates:
+  # ── Módulos Go (uno por directorio; cada uno tiene go.mod propio) ──
+  - package-ecosystem: gomod
+    directory: /logger
+    schedule:
+      interval: weekly
+    groups:
+      logger:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: /config
+    schedule:
+      interval: weekly
+    groups:
+      config:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: /envelope
+    schedule:
+      interval: weekly
+    groups:
+      envelope:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: /health
+    schedule:
+      interval: weekly
+    groups:
+      health:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: /auth
+    schedule:
+      interval: weekly
+    groups:
+      auth:
+        patterns:
+          - "*"
+
+  # ── GitHub Actions (workflows del CI/release) ──
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
