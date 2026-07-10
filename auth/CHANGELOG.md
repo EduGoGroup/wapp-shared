@@ -5,6 +5,13 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+
+- `ValidateToken`: se elimina la doble verificación de `iss`. El issuer lo valida
+  únicamente el parser vía `jwt.WithIssuer` (única fuente de verdad); un issuer
+  inesperado se sigue propagando como `ErrInvalidToken`. Sin cambios de API ni de
+  semántica pública.
+
 ## [0.1.0] - 2026-07-03
 
 ### Added

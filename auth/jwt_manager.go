@@ -85,6 +85,9 @@ func (m *JWTManager) GenerateToken(
 
 // ValidateToken parsea y valida un JWT: firma HS256, issuer y expiración
 // (`exp` obligatorio). Devuelve los claims o ErrTokenExpired/ErrInvalidToken.
+//
+// El issuer lo verifica el propio parser vía [jwt.WithIssuer] (única fuente de
+// verdad); un issuer inesperado se propaga como ErrInvalidToken.
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 	parser := jwt.NewParser(
 		jwt.WithIssuer(m.issuer),
@@ -109,9 +112,6 @@ func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
-	}
-	if claims.Issuer != m.issuer {
-		return nil, fmt.Errorf("%w: issuer inesperado", ErrInvalidToken)
 	}
 
 	return claims, nil
