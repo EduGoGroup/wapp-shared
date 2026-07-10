@@ -132,7 +132,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.4.0
+          version: v2.12.2
           working-directory: ${{ matrix.module }}
           args: --timeout=5m
 
@@ -178,6 +178,11 @@ jobs:
     name: Integration ${{ matrix.module }}
     runs-on: ubuntu-latest
     needs: prepare-modules
+    # Salta limpio cuando ningun modulo tiene tests de integracion (matriz vacia).
+    # Una strategy.matrix resuelta a [] hace que GitHub Actions marque el run
+    # completo como failure sin llegar a instanciar el job; este guard evita
+    # ese falso rojo cubriendo tanto '[]' como cadena vacia.
+    if: needs.prepare-modules.outputs.integration != '' && needs.prepare-modules.outputs.integration != '[]'
     strategy:
       fail-fast: false
       matrix:

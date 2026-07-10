@@ -3,7 +3,7 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 y [Versionado Semantico](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [0.2.0] - 2026-07-10
 
 ### Added
 
@@ -17,6 +17,18 @@ y [Versionado Semantico](https://semver.org/lang/es/).
   - Guard anti alg-confusion: cada manager valida exclusivamente su algoritmo
     (rechazo cruzado HS256↔ES256 con `ErrInvalidToken`). Sin nuevas dependencias
     (curva P-256 en stdlib).
+- Selección de llave por `kid` para la coexistencia/rotación de algoritmos
+  (ADR-0019, T0 del Plan 028). API HS256/ES256 previa intacta:
+  - `(*JWTManager).WithKid(kid)`: devuelve una copia que estampa el header `kid`
+    en cada token emitido (aditivo, sirve para cualquier algoritmo del manager).
+  - `MultiVerifier` (solo-verificación) con `NewMultiVerifier(issuer, byKid, def)`:
+    valida seleccionando la llave por el `kid` del token; una entrada "default"
+    valida los tokens SIN `kid` (legacy HS256). Cada entrada FIJA su algoritmo y
+    su llave (`HS256VerifierKey(secret)` / `ES256VerifierKey(publicKey)`),
+    extendiendo el guard anti alg-confusion por entrada: `kid` desconocido, token
+    sin `kid` sin default, o `alg` que no coincide con la entrada ⇒
+    `ErrInvalidToken`; `exp` vencido ⇒ `ErrTokenExpired`. Misma semántica de
+    issuer/exp que `JWTManager.ValidateToken`.
 
 ## [0.1.1] - 2026-07-10
 
