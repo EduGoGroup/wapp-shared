@@ -1,9 +1,11 @@
 package config_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/EduGoGroup/wapp-shared/config"
 )
@@ -116,5 +118,121 @@ func TestGettersWithoutPrefix(t *testing.T) {
 
 	if got := loader.GetString("PLAIN_KEY", "def"); got != "valor" {
 		t.Errorf("GetString sin prefijo = %q, esperaba 'valor'", got)
+	}
+}
+
+func TestGetIntE_InvalidReturnsError(t *testing.T) {
+	t.Setenv("WAPP_PORT", "81OO") // O en vez de 0: valor presente pero inválido
+
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	got, err := loader.GetIntE("PORT", 7)
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("GetIntE con valor inválido, err = %v, esperaba ErrInvalid", err)
+	}
+	if got != 7 {
+		t.Errorf("GetIntE con valor inválido devuelve %d, esperaba default 7", got)
+	}
+}
+
+func TestGetIntE_AbsentNoError(t *testing.T) {
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	got, err := loader.GetIntE("AUSENTE", 42)
+	if err != nil {
+		t.Errorf("GetIntE ausente devolvió error inesperado: %v", err)
+	}
+	if got != 42 {
+		t.Errorf("GetIntE ausente = %d, esperaba default 42", got)
+	}
+}
+
+func TestGetBoolE_InvalidReturnsError(t *testing.T) {
+	t.Setenv("FLAG", "quizas")
+
+	loader := config.New()
+
+	got, err := loader.GetBoolE("FLAG", true)
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("GetBoolE con valor inválido, err = %v, esperaba ErrInvalid", err)
+	}
+	if !got {
+		t.Errorf("GetBoolE con valor inválido = %v, esperaba default true", got)
+	}
+}
+
+func TestGetDuration(t *testing.T) {
+	t.Setenv("WAPP_TIMEOUT", "1500ms")
+
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	if got := loader.GetDuration("TIMEOUT", time.Second); got != 1500*time.Millisecond {
+		t.Errorf("GetDuration = %v, esperaba 1.5s", got)
+	}
+	if got := loader.GetDuration("AUSENTE", 3*time.Second); got != 3*time.Second {
+		t.Errorf("GetDuration ausente = %v, esperaba default 3s", got)
+	}
+}
+
+func TestGetDurationE_InvalidReturnsError(t *testing.T) {
+	t.Setenv("WAPP_TIMEOUT", "no-dura")
+
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	got, err := loader.GetDurationE("TIMEOUT", time.Second)
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("GetDurationE con valor inválido, err = %v, esperaba ErrInvalid", err)
+	}
+	if got != time.Second {
+		t.Errorf("GetDurationE con valor inválido = %v, esperaba default 1s", got)
+	}
+}
+
+func TestRequire_MissingReturnsErrMissing(t *testing.T) {
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	if _, err := loader.RequireString("AUSENTE"); !errors.Is(err, config.ErrMissing) {
+		t.Errorf("RequireString ausente, err = %v, esperaba ErrMissing", err)
+	}
+	if _, err := loader.RequireInt("AUSENTE"); !errors.Is(err, config.ErrMissing) {
+		t.Errorf("RequireInt ausente, err = %v, esperaba ErrMissing", err)
+	}
+	if _, err := loader.RequireBool("AUSENTE"); !errors.Is(err, config.ErrMissing) {
+		t.Errorf("RequireBool ausente, err = %v, esperaba ErrMissing", err)
+	}
+	if _, err := loader.RequireDuration("AUSENTE"); !errors.Is(err, config.ErrMissing) {
+		t.Errorf("RequireDuration ausente, err = %v, esperaba ErrMissing", err)
+	}
+}
+
+func TestRequire_PresentValid(t *testing.T) {
+	t.Setenv("WAPP_HOST", "db.internal")
+	t.Setenv("WAPP_PORT", "5432")
+	t.Setenv("WAPP_TLS", "true")
+	t.Setenv("WAPP_TIMEOUT", "30s")
+
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	if got, err := loader.RequireString("HOST"); err != nil || got != "db.internal" {
+		t.Errorf("RequireString = (%q, %v), esperaba ('db.internal', nil)", got, err)
+	}
+	if got, err := loader.RequireInt("PORT"); err != nil || got != 5432 {
+		t.Errorf("RequireInt = (%d, %v), esperaba (5432, nil)", got, err)
+	}
+	if got, err := loader.RequireBool("TLS"); err != nil || !got {
+		t.Errorf("RequireBool = (%v, %v), esperaba (true, nil)", got, err)
+	}
+	if got, err := loader.RequireDuration("TIMEOUT"); err != nil || got != 30*time.Second {
+		t.Errorf("RequireDuration = (%v, %v), esperaba (30s, nil)", got, err)
+	}
+}
+
+func TestRequireInt_PresentInvalid(t *testing.T) {
+	t.Setenv("WAPP_PORT", "no-numero")
+
+	loader := config.New(config.WithEnvPrefix("WAPP_"))
+
+	if _, err := loader.RequireInt("PORT"); !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("RequireInt inválido, err = %v, esperaba ErrInvalid", err)
 	}
 }
