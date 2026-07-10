@@ -5,6 +5,19 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+
+- Soporte OPCIONAL de firma **ES256** (ECDSA P-256) en `JWTManager`, coexistiendo
+  con HS256 (ADR-0019, H3 del Plan 027). API HS256 intacta:
+  - `NewJWTManagerES256(privateKey, issuer)`: firma con clave EC privada y valida
+    con su pública.
+  - `NewJWTVerifierES256(publicKey, issuer)`: validador de SOLO pública (no puede
+    firmar; `GenerateToken` devuelve `ErrInvalidInput`) — mínimo privilegio para
+    validadores que no emiten.
+  - Guard anti alg-confusion: cada manager valida exclusivamente su algoritmo
+    (rechazo cruzado HS256↔ES256 con `ErrInvalidToken`). Sin nuevas dependencias
+    (curva P-256 en stdlib).
+
 ## [0.1.1] - 2026-07-10
 
 ### Changed

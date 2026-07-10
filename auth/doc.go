@@ -1,7 +1,8 @@
 // Package auth ofrece las primitivas de autenticación y autorización del
-// ecosistema wApp: emisión y validación de JWT de usuario (HS256), service
-// tokens M2M, hashing de contraseñas (bcrypt), refresh tokens opacos y el
-// matcher glob de permisos (RBAC) con resolución de cadena de roles.
+// ecosistema wApp: emisión y validación de JWT de usuario (HS256 simétrico o,
+// opcionalmente, ES256 asimétrico — ADR-0019), service tokens M2M, hashing de
+// contraseñas (bcrypt), refresh tokens opacos y el matcher glob de permisos
+// (RBAC) con resolución de cadena de roles.
 //
 // Es lógica PURA: no toca base de datos ni HTTP. Los consumidores (p.ej.
 // cloud-platform) construyen sus casos de uso IAM encima de estas piezas.
