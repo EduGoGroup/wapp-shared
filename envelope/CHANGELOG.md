@@ -5,6 +5,12 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+
+- El método `Envelope.Overhead()` ahora devuelve la constante `Overhead` (única
+  fuente de verdad del valor) en lugar de recomputarlo; ambos siguen coincidiendo
+  (nonce 12 + tag 16 = 28). Sin cambios de API.
+
 ## [0.1.0] - 2026-06-25
 
 ### Added

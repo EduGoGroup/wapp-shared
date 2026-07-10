@@ -3,7 +3,8 @@ name: Release CI/CD
 on:
   push:
     tags:
-      - 'v*'
+      # Solo releases por módulo: <modulo>/vX.Y.Z (o anidado). No hay módulo raíz,
+      # por eso NO se dispara con tags 'v*' sueltos (evita releases sin sentido).
       - '*/v*'
       - '*/*/v*'
 
@@ -21,7 +22,6 @@ jobs:
       module: ${{ steps.meta.outputs.module }}
       title: ${{ steps.meta.outputs.title }}
       changelog_file: ${{ steps.meta.outputs.changelog_file }}
-      scope: ${{ steps.meta.outputs.scope }}
     steps:
       - name: Checkout codigo
         uses: actions/checkout@v4
@@ -35,20 +35,12 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG##*/}"
 
-          if [[ "$TAG" == v* ]]; then
-            echo "scope=root" >> "$GITHUB_OUTPUT"
-            echo "module=" >> "$GITHUB_OUTPUT"
-            echo "title=Release $TAG" >> "$GITHUB_OUTPUT"
-            echo "changelog_file=CHANGELOG.md" >> "$GITHUB_OUTPUT"
-            echo "matrix=$(./scripts/list-modules.sh --set release --format json)" >> "$GITHUB_OUTPUT"
-          else
-            MODULE="${TAG%/$VERSION}"
-            echo "scope=module" >> "$GITHUB_OUTPUT"
-            echo "module=$MODULE" >> "$GITHUB_OUTPUT"
-            echo "title=Release $MODULE $VERSION" >> "$GITHUB_OUTPUT"
-            echo "changelog_file=$MODULE/CHANGELOG.md" >> "$GITHUB_OUTPUT"
-            printf 'matrix=["%s"]\n' "$MODULE" >> "$GITHUB_OUTPUT"
-          fi
+          # Solo releases por módulo: el trigger garantiza un tag '<modulo>/vX.Y.Z'.
+          MODULE="${TAG%/$VERSION}"
+          echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+          echo "title=Release $MODULE $VERSION" >> "$GITHUB_OUTPUT"
+          echo "changelog_file=$MODULE/CHANGELOG.md" >> "$GITHUB_OUTPUT"
+          printf 'matrix=["%s"]\n' "$MODULE" >> "$GITHUB_OUTPUT"
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -113,7 +105,7 @@ jobs:
         uses: codecov/codecov-action@v5
         if: success()
         with:
-          file: ${{ matrix.module }}/coverage/coverage.out
+          files: ${{ matrix.module }}/coverage/coverage.out
           flags: ${{ matrix.module }}
           name: codecov-release-${{ matrix.module }}
           fail_ci_if_error: false
@@ -141,11 +133,7 @@ jobs:
           else
             echo "## [${VERSION#v}]" > /tmp/changelog.md
             echo "" >> /tmp/changelog.md
-            if [ -n "${{ needs.prepare-release.outputs.module }}" ]; then
-              echo "Release del modulo ${{ needs.prepare-release.outputs.module }}." >> /tmp/changelog.md
-            else
-              echo "Release ${{ needs.prepare-release.outputs.tag }}." >> /tmp/changelog.md
-            fi
+            echo "Release del modulo ${{ needs.prepare-release.outputs.module }}." >> /tmp/changelog.md
           fi
 
       - name: Crear GitHub Release
@@ -153,7 +141,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare-release.outputs.tag }}
           TITLE: ${{ needs.prepare-release.outputs.title }}
-          SCOPE: ${{ needs.prepare-release.outputs.scope }}
           MODULE: ${{ needs.prepare-release.outputs.module }}
           VERSION: ${{ needs.prepare-release.outputs.version }}
           REPO: ${{ github.repository }}
@@ -163,35 +150,22 @@ jobs:
 
           # Nota: se usan echo en lugar de heredoc para evitar el conflicto
           # entre la indentación YAML y los delimitadores de heredoc bash.
-          if [ "$SCOPE" = "module" ]; then
-            {
-              echo ""
-              echo "---"
-              echo ""
-              echo "## Instalacion del modulo"
-              echo ""
-              echo '```bash'
-              echo "go get github.com/EduGoGroup/wapp-shared/$MODULE@$VERSION"
-              echo '```'
-              echo ""
-              echo "## Documentacion relacionada"
-              echo ""
-              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/README.md"
-              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/docs/README.md"
-              echo "- https://github.com/$REPO/blob/$TAG/$MODULE/CHANGELOG.md"
-            } > "$EXTRA_NOTES"
-          else
-            {
-              echo ""
-              echo "---"
-              echo ""
-              echo "## Documentacion relacionada"
-              echo ""
-              echo "- https://github.com/$REPO/blob/$TAG/README.md"
-              echo "- https://github.com/$REPO/blob/$TAG/docs/README.md"
-              echo "- https://github.com/$REPO/blob/$TAG/CHANGELOG.md"
-            } > "$EXTRA_NOTES"
-          fi
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Instalacion del modulo"
+            echo ""
+            echo '```bash'
+            echo "go get github.com/EduGoGroup/wapp-shared/$MODULE@$VERSION"
+            echo '```'
+            echo ""
+            echo "## Documentacion relacionada"
+            echo ""
+            echo "- https://github.com/$REPO/blob/$TAG/$MODULE/README.md"
+            echo "- https://github.com/$REPO/blob/$TAG/$MODULE/docs/README.md"
+            echo "- https://github.com/$REPO/blob/$TAG/$MODULE/CHANGELOG.md"
+          } > "$EXTRA_NOTES"
 
           cat "$EXTRA_NOTES" >> "$NOTES_FILE"
 

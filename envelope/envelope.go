@@ -78,8 +78,9 @@ func (e *Envelope) Open(blob []byte) ([]byte, error) {
 	return pt, nil
 }
 
-// Overhead es el costo en bytes que GCM añade a cualquier plaintext: nonce(12) + tag(16) = 28.
-// Coincide con la constante [Overhead]; se expone como método por conveniencia del consumidor.
+// Overhead se expone como método por conveniencia del consumidor y devuelve la
+// constante [Overhead] (única fuente de verdad del valor); para AES-256-GCM el
+// costo es siempre nonce(12) + tag(16) = 28.
 func (e *Envelope) Overhead() int {
-	return e.aead.NonceSize() + e.aead.Overhead()
+	return Overhead
 }
