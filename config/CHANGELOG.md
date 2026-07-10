@@ -5,6 +5,8 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-10
+
 ### Added
 
 - Getters con error explícito `GetIntE`, `GetBoolE` y `GetDurationE`: devuelven

@@ -5,6 +5,8 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-10
+
 ### Changed
 
 - `ValidateToken`: se elimina la doble verificación de `iss`. El issuer lo valida

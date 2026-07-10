@@ -5,6 +5,8 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-10
+
 ### Changed
 
 - El método `Envelope.Overhead()` ahora devuelve la constante `Overhead` (única
