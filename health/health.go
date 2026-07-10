@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -37,7 +38,13 @@ type HealthCheck interface {
 }
 
 // Checker gestiona y agrega multiples health checks.
+//
+// Es seguro para uso concurrente: Register y las operaciones de lectura
+// (CheckAll/IsHealthy/IsReady) se sincronizan con un RWMutex. El contrato
+// recomendado sigue siendo registrar los checks en el arranque y solo leer
+// despues, pero registrar en caliente es seguro.
 type Checker struct {
+	mu     sync.RWMutex
 	checks []HealthCheck
 }
 
@@ -54,14 +61,25 @@ func (c *Checker) Register(check HealthCheck) {
 	if check == nil {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.checks = append(c.checks, check)
 }
 
 // CheckAll ejecuta todos los health checks registrados y devuelve un mapa
 // indexado por nombre de componente con su resultado.
+//
+// Toma una instantanea de los checks bajo lock de lectura y los ejecuta fuera
+// del lock, para no bloquear Register mientras corren chequeos potencialmente
+// lentos.
 func (c *Checker) CheckAll(ctx context.Context) map[string]CheckResult {
-	results := make(map[string]CheckResult, len(c.checks))
-	for _, check := range c.checks {
+	c.mu.RLock()
+	checks := make([]HealthCheck, len(c.checks))
+	copy(checks, c.checks)
+	c.mu.RUnlock()
+
+	results := make(map[string]CheckResult, len(checks))
+	for _, check := range checks {
 		results[check.Name()] = check.Check(ctx)
 	}
 	return results

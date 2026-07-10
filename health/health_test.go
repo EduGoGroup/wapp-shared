@@ -2,6 +2,8 @@ package health_test
 
 import (
 	"context"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,4 +82,32 @@ func TestChecker_Empty_IsHealthy(t *testing.T) {
 	c := health.NewChecker()
 	// Sin checks registrados no hay nada que falle.
 	assert.True(t, c.IsHealthy(context.Background()))
+}
+
+// TestChecker_ConcurrentRegisterAndCheck ejerce Register y CheckAll en
+// paralelo; con `go test -race` detecta cualquier acceso concurrente sin
+// sincronizar sobre la lista interna de checks.
+func TestChecker_ConcurrentRegisterAndCheck(t *testing.T) {
+	c := health.NewChecker()
+	ctx := context.Background()
+
+	const n = 50
+	var wg sync.WaitGroup
+	wg.Add(2 * n)
+
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			defer wg.Done()
+			c.Register(stubCheck{name: "c" + strconv.Itoa(i), status: health.StatusHealthy})
+		}(i)
+		go func() {
+			defer wg.Done()
+			// Lecturas concurrentes mientras se registra.
+			_ = c.CheckAll(ctx)
+			_ = c.IsHealthy(ctx)
+		}()
+	}
+
+	wg.Wait()
+	assert.Len(t, c.CheckAll(ctx), n)
 }

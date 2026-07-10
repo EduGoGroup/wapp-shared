@@ -5,6 +5,13 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+
+- `Checker` ahora es seguro para uso concurrente: `Register` y las lecturas
+  (`CheckAll`/`IsHealthy`/`IsReady`) se sincronizan con un `sync.RWMutex`.
+  `CheckAll` toma una instantánea de los checks bajo lock de lectura y los
+  ejecuta fuera del lock. Sin cambios de API.
+
 ## [0.1.0] - 2026-06-25
 
 ### Added
