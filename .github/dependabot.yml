@@ -52,6 +52,15 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: gomod
+    directory: /intents
+    schedule:
+      interval: weekly
+    groups:
+      intents:
+        patterns:
+          - "*"
+
   # ── GitHub Actions (workflows del CI/release) ──
   - package-ecosystem: github-actions
     directory: /
