@@ -24,7 +24,7 @@ jobs:
       changelog_file: ${{ steps.meta.outputs.changelog_file }}
     steps:
       - name: Checkout codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -56,10 +56,10 @@ jobs:
 
     steps:
       - name: Checkout codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -102,7 +102,7 @@ jobs:
         run: go build -v ./...
 
       - name: Subir cobertura
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         if: success()
         with:
           files: ${{ matrix.module }}/coverage/coverage.out
@@ -119,7 +119,7 @@ jobs:
 
     steps:
       - name: Checkout codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
