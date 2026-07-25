@@ -21,8 +21,10 @@ var ErrInvalid = errors.New("config: valor de entorno inválido")
 // Loader carga configuracion desde un archivo YAML opcional y expone getters
 // tipados sobre variables de entorno.
 type Loader struct {
-	envPrefix string
-	file      string
+	envPrefix   string
+	file        string
+	envProvider EnvProvider
+	fileReader  FileReader
 }
 
 // Option configura la construccion de un [Loader] mediante [New].
@@ -44,9 +46,30 @@ func WithFile(path string) Option {
 	}
 }
 
+// WithEnvProvider permite inyectar un proveedor personalizado de variables de entorno.
+func WithEnvProvider(provider EnvProvider) Option {
+	return func(l *Loader) {
+		if provider != nil {
+			l.envProvider = provider
+		}
+	}
+}
+
+// WithFileReader permite inyectar un lector personalizado de archivos de configuración.
+func WithFileReader(reader FileReader) Option {
+	return func(l *Loader) {
+		if reader != nil {
+			l.fileReader = reader
+		}
+	}
+}
+
 // New construye un [Loader] aplicando las opciones dadas.
 func New(opts ...Option) *Loader {
-	l := &Loader{}
+	l := &Loader{
+		envProvider: osEnvProvider{},
+		fileReader:  osFileReader{},
+	}
 	for _, opt := range opts {
 		opt(l)
 	}
@@ -62,7 +85,7 @@ func (l *Loader) Unmarshal(into any) error {
 		return nil
 	}
 
-	data, err := os.ReadFile(l.file)
+	data, err := l.fileReader.ReadFile(l.file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -79,7 +102,10 @@ func (l *Loader) Unmarshal(into any) error {
 
 // lookup devuelve el valor de la variable de entorno (con prefijo) y si existe.
 func (l *Loader) lookup(key string) (string, bool) {
-	return os.LookupEnv(l.envPrefix + key)
+	if l.envProvider == nil {
+		l.envProvider = osEnvProvider{}
+	}
+	return l.envProvider.LookupEnv(l.envPrefix + key)
 }
 
 // GetString devuelve la variable de entorno key (con prefijo) o def si no esta

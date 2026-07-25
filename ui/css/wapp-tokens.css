@@ -1,0 +1,88 @@
+/* ==========================================================================
+   wApp Design Tokens — Fuente Única de Verdad del Ecosistema
+   ========================================================================== */
+
+:root {
+  /* --- Colores Primarios y de Marca --- */
+  --wapp-color-brand-primary: #006A60;
+  --wapp-color-brand-on-primary: #FFFFFF;
+  --wapp-color-brand-container: #9EF2E4;
+  --wapp-color-brand-on-container: #00201C;
+
+  /* --- Colores Secundarios y Acentos --- */
+  --wapp-color-secondary: #4A635E;
+  --wapp-color-on-secondary: #FFFFFF;
+  --wapp-color-secondary-container: #CCE8E1;
+  --wapp-color-on-secondary-container: #06201B;
+
+  /* --- Colores Terciarios --- */
+  --wapp-color-tertiary: #446179;
+  --wapp-color-on-tertiary: #FFFFFF;
+  --wapp-color-tertiary-container: #CBE6FF;
+  --wapp-color-on-tertiary-container: #001E31;
+
+  /* --- Estados Semánticos --- */
+  --wapp-color-success: #16A34A;
+  --wapp-color-on-success: #FFFFFF;
+  --wapp-color-success-container: #DCFCE7;
+  
+  --wapp-color-warning: #D97706;
+  --wapp-color-on-warning: #FFFFFF;
+  --wapp-color-warning-container: #FEF3C7;
+
+  --wapp-color-error: #BA1A1A;
+  --wapp-color-on-error: #FFFFFF;
+  --wapp-color-error-container: #FFDAD6;
+  --wapp-color-on-error-container: #410002;
+
+  /* --- Neutros y Superficies (Modo Claro) --- */
+  --wapp-color-bg: #F4FBF8;
+  --wapp-color-on-bg: #161D1B;
+  --wapp-color-surface: #F4FBF8;
+  --wapp-color-on-surface: #161D1B;
+  --wapp-color-surface-variant: #DAE5E1;
+  --wapp-color-on-surface-variant: #3F4946;
+  --wapp-color-border: #6F7975;
+  --wapp-color-border-variant: #BEC9C4;
+  --wapp-color-surface-card: #FFFFFF;
+
+  /* --- Tipografía --- */
+  --wapp-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --wapp-font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* --- Esquinas (Border Radius) --- */
+  --wapp-radius-xs: 4px;
+  --wapp-radius-sm: 8px;
+  --wapp-radius-md: 12px;
+  --wapp-radius-lg: 16px;
+  --wapp-radius-xl: 28px;
+  --wapp-radius-full: 999px;
+
+  /* --- Sombras y Elevación --- */
+  --wapp-shadow-1: 0 1px 2px rgba(0,0,0,0.20), 0 1px 3px 1px rgba(0,0,0,0.10);
+  --wapp-shadow-2: 0 1px 2px rgba(0,0,0,0.20), 0 2px 6px 2px rgba(0,0,0,0.10);
+  --wapp-shadow-3: 0 4px 8px 3px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.20);
+
+  /* --- Espaciados --- */
+  --wapp-space-1: 4px;
+  --wapp-space-2: 8px;
+  --wapp-space-3: 12px;
+  --wapp-space-4: 16px;
+  --wapp-space-6: 24px;
+  --wapp-space-8: 32px;
+}
+
+/* --- Preferencias de Modo Oscuro --- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wapp-color-bg: #0E1513;
+    --wapp-color-on-bg: #DDE4E1;
+    --wapp-color-surface: #0E1513;
+    --wapp-color-on-surface: #DDE4E1;
+    --wapp-color-surface-variant: #3F4946;
+    --wapp-color-on-surface-variant: #BEC9C4;
+    --wapp-color-border: #899390;
+    --wapp-color-border-variant: #3F4946;
+    --wapp-color-surface-card: #161D1B;
+  }
+}

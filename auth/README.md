@@ -1,8 +1,10 @@
 # auth
 
 Primitivas **puras** de autenticación y autorización del ecosistema wApp: JWT
-de usuario (HS256), service tokens M2M, bcrypt, refresh tokens opacos y RBAC por
-grants glob con cadena de roles. Sin base de datos ni HTTP.
+de usuario **ES256** (ECDSA P-256, con `kid` y `MultiVerifier` para coexistencia
+de algoritmos; ADR-0019), service tokens M2M (HS256), bcrypt, refresh tokens
+opacos y RBAC por grants glob con cadena de roles. La firma HS256 sigue disponible
+en `JWTManager` para compatibilidad. Sin base de datos ni HTTP.
 
 Es una **copia-adaptación** del módulo auth de EduGo (ADR-0004): se toma el
 patrón y se **simplifica** a `{tenant_id, user_id, roles, grants}` — sin la

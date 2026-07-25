@@ -2,6 +2,7 @@ package logger_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"testing"
@@ -127,3 +128,33 @@ func TestTextFormatByDefault(t *testing.T) {
 		t.Errorf("salida de texto sin 'k=v': %q", out)
 	}
 }
+
+func TestWithContextAndFromContext(t *testing.T) {
+	var buf bytes.Buffer
+	log := logger.New(logger.WithJSON(true), logger.WithWriter(&buf))
+
+	ctx := logger.WithContext(t.Context(), log)
+	fromCtx := logger.FromContext(ctx)
+
+	if fromCtx == nil {
+		t.Fatal("FromContext devolvió nil")
+	}
+
+	fromCtx.Info("mensaje desde contexto", "ctx", "ok")
+
+	records := decodeLines(t, &buf)
+	if len(records) != 1 {
+		t.Fatalf("esperaba 1 registro, obtuve %d", len(records))
+	}
+	if records[0]["msg"] != "mensaje desde contexto" {
+		t.Errorf("msg = %v, esperaba 'mensaje desde contexto'", records[0]["msg"])
+	}
+
+	// Contexto vacio devuelve Default()
+	var nilCtx context.Context
+	defaultLog := logger.FromContext(nilCtx)
+	if defaultLog == nil {
+		t.Error("FromContext(nilCtx) devolvió nil")
+	}
+}
+

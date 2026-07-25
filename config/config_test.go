@@ -236,3 +236,23 @@ func TestRequireInt_PresentInvalid(t *testing.T) {
 		t.Errorf("RequireInt inválido, err = %v, esperaba ErrInvalid", err)
 	}
 }
+
+func TestMapEnvProvider(t *testing.T) {
+	envMap := config.MapEnvProvider{
+		"WAPP_HOST": "127.0.0.1",
+		"WAPP_PORT": "9090",
+	}
+
+	loader := config.New(
+		config.WithEnvPrefix("WAPP_"),
+		config.WithEnvProvider(envMap),
+	)
+
+	if got := loader.GetString("HOST", "localhost"); got != "127.0.0.1" {
+		t.Errorf("GetString(HOST) = %q, esperaba '127.0.0.1'", got)
+	}
+	if got := loader.GetInt("PORT", 8080); got != 9090 {
+		t.Errorf("GetInt(PORT) = %d, esperaba 9090", got)
+	}
+}
+
