@@ -16,6 +16,10 @@ jerarquía escuela/unidad/ward. **No** importa ningún paquete de EduGo.
 go get github.com/EduGoGroup/wapp-shared/auth
 ```
 
+El módulo **no expone paquete raíz**: se importa siempre el subpaquete concreto
+(`auth/jwt`, `auth/password`, `auth/rbac`). Desde `v0.3.0` el `package auth` a
+secas ya no existe.
+
 ## Uso
 
 ```go
@@ -24,34 +28,40 @@ package main
 import (
 	"time"
 
-	"github.com/EduGoGroup/wapp-shared/auth"
+	"github.com/EduGoGroup/wapp-shared/auth/jwt"
+	"github.com/EduGoGroup/wapp-shared/auth/rbac"
 )
 
 func main() {
-	mgr := auth.NewJWTManager("secret-hs256", "wapp-iam")
+	mgr := jwt.NewJWTManager("secret-hs256", "wapp-iam")
 
-	grants := auth.Grants{
+	grants := rbac.Grants{
 		Allow: []string{"flows.*", "messages.send"},
 		Deny:  []string{"crypto.rekey"},
 	}
 	token, _, _ := mgr.GenerateToken("user-1", "tenant-1", []string{"operator"}, grants, time.Hour)
 
 	claims, _ := mgr.ValidateToken(token)
-	_ = auth.EvaluateGrants(claims.Grants, "messages.send") // true
-	_ = auth.EvaluateGrants(claims.Grants, "crypto.rekey")  // false (deny gana)
+	_ = rbac.EvaluateGrants(claims.Grants, "messages.send") // true
+	_ = rbac.EvaluateGrants(claims.Grants, "crypto.rekey")  // false (deny gana)
 }
 ```
 
+`jwt.Grants` es un alias de `rbac.Grants`, así que los claims se construyen con
+cualquiera de los dos nombres sin conversión.
+
 ## Piezas
 
-| Archivo | Qué expone |
+| Paquete / archivo | Qué expone |
 |---|---|
-| `jwt_manager.go` / `jwt_claims.go` | `JWTManager`, `Claims`, `Grants` (access token de usuario) |
-| `service_claims.go` | `ServiceJWTManager`, `ServiceClaims` (M2M por scopes) |
-| `password.go` | `HashPassword`, `VerifyPassword` (bcrypt cost 12) |
-| `refresh_token.go` | `GenerateRefreshToken`, `HashToken` (refresh opaco + SHA256) |
-| `permission_matcher.go` | `PermissionMatches`, `EvaluateGrants` (glob, deny-precede-allow, default DENY) |
-| `role_chain.go` | `ResolveRoleChain`, `MergeGrantChain` (herencia de roles) |
+| `jwt/jwt_manager.go` · `jwt/jwt_claims.go` | `JWTManager`, `Claims`, `Grants` (alias de `rbac.Grants`), `TokenUseAccess`/`TokenUseRefresh` |
+| `jwt/jwt_multiverifier.go` | `MultiVerifier`, `VerifierKey`, `HS256VerifierKey`, `ES256VerifierKey` |
+| `jwt/service_claims.go` | `ServiceJWTManager`, `ServiceClaims`, `TokenUseService` (M2M por scopes) |
+| `jwt/refresh_token.go` | `RefreshToken`, `GenerateRefreshToken`, `HashToken` (refresh opaco + SHA256) |
+| `jwt/interfaces.go` · `jwt/errors.go` | `TokenGenerator`/`TokenVerifier`/`TokenManager`; `ErrInvalidInput`, `ErrTokenExpired`, `ErrInvalidToken` |
+| `password/password.go` · `password/interfaces.go` | `HashPassword`, `VerifyPassword` (bcrypt cost 12), `Hasher`, `DefaultHasher`, `NewHasher` |
+| `rbac/permission_matcher.go` | `Grants`, `PermissionMatches`, `EvaluateGrants` (glob, deny-precede-allow, default DENY) |
+| `rbac/role_chain.go` · `rbac/interfaces.go` | `ResolveRoleChain`, `MergeGrantChain` (herencia de roles); `PermissionEvaluator` |
 
 ## RBAC — gramática de permisos
 
