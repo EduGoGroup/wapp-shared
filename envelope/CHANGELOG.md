@@ -5,6 +5,23 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-01
+
+### Added
+
+- Contratos explícitos para las dos capas del módulo (Plan 038), de modo que un
+  consumidor dependa de la operación y no del tipo concreto:
+  - `Crypter` — capa simétrica: `Seal`, `Open`, `Overhead`. La satisface
+    `*Envelope`.
+  - `Sealer` — capa asimétrica: `SealFor`, `OpenWith`. La satisface el nuevo
+    `BoxSealer` (constructor `NewBoxSealer()`), envoltura con receptor de las
+    funciones `SealFor`/`OpenWith` ya existentes, que siguen disponibles.
+- Aserciones de compilación `var _ Crypter = (*Envelope)(nil)` y
+  `var _ Sealer = (*BoxSealer)(nil)`: una deriva entre interfaz e implementación
+  rompe el build de este módulo, no el del consumidor.
+
+  Cambio **aditivo**: la API previa no cambia de forma ni de semántica.
+
 ## [0.1.1] - 2026-07-10
 
 ### Changed
