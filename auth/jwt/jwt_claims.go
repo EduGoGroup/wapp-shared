@@ -5,15 +5,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Valores del claim `token_use` para los JWT de usuario. El service token usa
-// TokenUseService (ver service_claims.go).
-const (
-	// TokenUseAccess identifica un access token de usuario.
-	TokenUseAccess = "access"
-	// TokenUseRefresh identifica un JWT de refresh (no confundir con el refresh
-	// token OPACO de refresh_token.go, que es el mecanismo por defecto en wApp).
-	TokenUseRefresh = "refresh"
-)
+// TokenUseAccess es el valor del claim `token_use` de un access token de
+// usuario. El service token usa TokenUseService (ver service_claims.go).
+const TokenUseAccess = "access"
 
 // Grants es el wire format de permisos que viaja en los claims: un ALIAS de
 // [rbac.Grants], no un tipo nuevo. Los dos nombres son intercambiables sin
