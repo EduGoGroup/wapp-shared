@@ -1,13 +1,13 @@
 name: CI Pipeline
 
+# La validación continua ahora es LOCAL (`make ci-local` / `make ci-docker`), no en
+# GitHub Actions: los merges a dev/main se hacen localmente, sin PRs. Este workflow
+# queda disponible solo para corridas manuales bajo demanda.
 on:
-  pull_request:
-    branches: [main, dev]
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 env:
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.26.5'
 
 jobs:
   # ──────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ jobs:
         run: go test -short -v -race ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
           working-directory: ${{ matrix.module }}

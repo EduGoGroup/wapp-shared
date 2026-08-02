@@ -1,15 +1,10 @@
 name: Sync Main to Dev
 
-# Tras cada push a main, recrea/sincroniza dev desde main (merge real) para que
-# main y dev terminen con el MISMO contenido. Ver docs/runbooks/despliegue-y-release.md §2.
-# Caveat: un push hecho con el GITHUB_TOKEN nativo NO dispara este workflow (anti-recursion);
-# en ese caso hay que sincronizar dev a mano.
+# El sync main→dev ahora es LOCAL (fast-forward manual tras cada push a main), no
+# en GitHub Actions: los merges se hacen sin PRs y sin push del GITHUB_TOKEN nativo.
+# Este workflow queda disponible solo para corridas manuales bajo demanda.
 on:
-  push:
-    branches: [main]
-    tags:
-      - '*/v*'
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
