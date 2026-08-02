@@ -1,6 +1,9 @@
 // Package jwt emite y valida los tokens del ecosistema wApp: JWT de usuario
-// (ES256 asimétrico — ADR-0019 — o HS256 simétrico), service tokens M2M por
-// scopes y refresh tokens opacos.
+// (ES256 asimétrico — ADR-0019 — o HS256 simétrico) y service tokens M2M por
+// scopes.
+//
+// El refresh opaco NO está aquí: lo emite identity, que es quien custodia las
+// sesiones del grupo (identity ADR-0003). Ver identity-shared/auth/jwt.
 //
 // Es lógica PURA: no toca base de datos ni HTTP. Los consumidores (p. ej.
 // cloud-platform) construyen sus casos de uso IAM encima de estas piezas.
