@@ -49,5 +49,11 @@ if [[ -z "$START_LINE" ]]; then
     exit 1
 fi
 
-END_LINE=$(awk -v start="$START_LINE" 'NR > start && /^## \[/ { print NR - 1; exit } END { if (NR >= start) print NR }' "$CHANGELOG_FILE")
+# El `exit` de awk salta al bloque END, asi que este necesita un guard: sin el,
+# una version que NO es la ultima seccion imprime DOS numeros y el sed de abajo
+# muere ("command expected"). El release cae entonces a las notas genericas.
+END_LINE=$(awk -v start="$START_LINE" '
+    NR > start && /^## \[/ { print NR - 1; found = 1; exit }
+    END { if (!found && NR >= start) print NR }
+' "$CHANGELOG_FILE")
 sed -n "${START_LINE},${END_LINE}p" "$CHANGELOG_FILE"

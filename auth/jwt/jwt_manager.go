@@ -1,4 +1,4 @@
-package auth
+package jwt
 
 import (
 	"crypto/ecdsa"
@@ -25,6 +25,13 @@ const clockLeeway = 30 * time.Second
 // Un manager valida EXCLUSIVAMENTE su propio algoritmo (guard anti
 // alg-confusion): un token HS256 verificado por un manager ES256 —o viceversa—
 // se rechaza con ErrInvalidToken.
+//
+// El nombre llega intacto desde auth.JWTManager. Renombrarlo al idiomático
+// jwt.Manager ampliaría el breaking de v0.3.0 más allá del cambio de import
+// path que los consumidores ya tienen inventariado, así que la decisión se
+// toma aparte y no colgada de esta migración.
+//
+//nolint:revive // jwt.JWTManager tartamudea; el rename se decide aparte
 type JWTManager struct {
 	issuer       string
 	method       jwt.SigningMethod

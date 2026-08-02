@@ -1,6 +1,9 @@
-package auth
+package jwt
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/EduGoGroup/wapp-shared/auth/rbac"
+	"github.com/golang-jwt/jwt/v5"
+)
 
 // Valores del claim `token_use` para los JWT de usuario. El service token usa
 // TokenUseService (ver service_claims.go).
@@ -12,14 +15,12 @@ const (
 	TokenUseRefresh = "refresh"
 )
 
-// Grants es el wire format de permisos: una lista de patterns allow y una de
-// patterns deny en gramática glob (ver PermissionMatches). La precedencia
-// deny-sobre-allow y el default DENY los aplica EvaluateGrants, no esta
-// estructura.
-type Grants struct {
-	Allow []string `json:"allow"`
-	Deny  []string `json:"deny"`
-}
+// Grants es el wire format de permisos que viaja en los claims: un ALIAS de
+// [rbac.Grants], no un tipo nuevo. Los dos nombres son intercambiables sin
+// conversión, así que un consumidor que solo emite y valida tokens no necesita
+// importar auth/rbac. La gramática glob, la precedencia deny-sobre-allow y el
+// default DENY los define y aplica ese paquete; aquí solo se transportan.
+type Grants = rbac.Grants
 
 // Claims representa los claims personalizados del JWT de usuario de wApp.
 //

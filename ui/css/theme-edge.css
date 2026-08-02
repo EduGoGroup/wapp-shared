@@ -1,0 +1,11 @@
+/* ==========================================================================
+   wApp Theme — Plano de Control Edge Agent UI (Slate / Blue Palette)
+   ========================================================================== */
+
+:root {
+  --wapp-color-brand-primary: #2563EB;
+  --wapp-color-brand-on-primary: #FFFFFF;
+  --wapp-color-brand-container: #DBEAFE;
+  --wapp-color-brand-on-container: #1E3A8A;
+  --wapp-app-brand-accent: #2563EB;
+}
