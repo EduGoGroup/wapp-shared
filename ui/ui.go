@@ -6,6 +6,7 @@ import (
 )
 
 // Assets contiene los archivos CSS del sistema de diseño wApp embebidos nativamente en Go.
+//
 //go:embed css/*.css
 var Assets embed.FS
 
