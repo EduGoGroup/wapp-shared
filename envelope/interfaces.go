@@ -12,3 +12,10 @@ type Sealer interface {
 	SealFor(recipientPub, plaintext []byte) ([]byte, error)
 	OpenWith(priv, sealed []byte) ([]byte, error)
 }
+
+// Las implementaciones de este módulo se declaran aquí para que el compilador
+// delate cualquier deriva entre la interfaz y su implementación.
+var (
+	_ Crypter = (*Envelope)(nil)
+	_ Sealer  = (*BoxSealer)(nil)
+)
