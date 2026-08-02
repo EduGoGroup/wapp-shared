@@ -5,6 +5,23 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-01
+
+### Added
+
+- Inversión de dependencias en las dos fuentes que el `Loader` toca (Plan 038),
+  para poder testear la configuración sin `os.Setenv` ni archivos temporales:
+  - `EnvProvider`: contrato de lectura de variables de entorno
+    (`LookupEnv(key) (string, bool)`). Por defecto sigue leyendo de `os`.
+  - `FileReader`: contrato de lectura del archivo de configuración
+    (`ReadFile(path) ([]byte, error)`). Por defecto sigue leyendo de `os`.
+  - `MapEnvProvider`: implementación de `EnvProvider` sobre un mapa en memoria,
+    pensada para tests.
+  - Opciones `WithEnvProvider(EnvProvider)` y `WithFileReader(FileReader)` para
+    inyectarlos en `New(opts...)`.
+
+  Cambio **aditivo**: sin opciones, el comportamiento de `New` es el de antes.
+
 ## [0.2.0] - 2026-07-10
 
 ### Added

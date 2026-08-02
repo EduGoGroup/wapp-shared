@@ -25,6 +25,25 @@ var ErrPrivateKeySize = errors.New("la clave privada debe medir exactamente 32 b
 // manipulado o truncado.
 var ErrOpenFailed = errors.New("no se pudo abrir el sellado (clave privada incorrecta o datos manipulados)")
 
+// BoxSealer implementa la interfaz [Sealer] utilizando NaCl Box (X25519).
+type BoxSealer struct{}
+
+// NewBoxSealer construye una nueva instancia de [BoxSealer].
+func NewBoxSealer() *BoxSealer {
+	return &BoxSealer{}
+}
+
+// SealFor sella plaintext hacia recipientPub. Equivale a la función [SealFor].
+func (b *BoxSealer) SealFor(recipientPub, plaintext []byte) ([]byte, error) {
+	return SealFor(recipientPub, plaintext)
+}
+
+// OpenWith abre un sellado con la clave privada del destinatario. Equivale a la
+// función [OpenWith].
+func (b *BoxSealer) OpenWith(priv, sealed []byte) ([]byte, error) {
+	return OpenWith(priv, sealed)
+}
+
 // GenerateKeyPair genera un par de claves X25519 nuevo.
 //
 // La pública se comparte (p. ej. Ks_pub del servidor o Kd_pub del dispositivo); la privada nunca
