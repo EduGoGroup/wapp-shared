@@ -157,9 +157,7 @@ ci-docker: ## Simula el CI en Docker (Go $(GO_VERSION) + golangci-lint $(LINT_VE
 	@which docker > /dev/null 2>&1 || (echo "$(RED)Docker no instalado$(NC)" && exit 1)
 	@echo "$(YELLOW)Ejecutando CI en Docker (Go $(GO_VERSION) + golangci-lint $(LINT_VERSION))...$(NC)"
 	@docker run --rm \
-		-e GOPRIVATE=github.com/EduGoGroup/* \
 		-e GOFLAGS=-buildvcs=false \
-		-v "$(HOME)/.netrc:/root/.netrc:ro" \
 		-v "$$(go env GOPATH)/pkg/mod:/go/pkg/mod" \
 		-v "$(CURDIR):/workspace" \
 		-w /workspace \
