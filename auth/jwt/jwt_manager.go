@@ -10,17 +10,39 @@ import (
 	"github.com/google/uuid"
 )
 
+// clockLeeway es la tolerancia de reloj aplicada a `nbf`/`iat`/`exp` para
+// evitar rechazos por skew de pocos segundos entre instancias.
 const clockLeeway = 30 * time.Second
 
+// JWTManager emite y valida JWT de usuario. Soporta dos algoritmos de firma que
+// coexisten (ADR-0019):
+//
+//   - HS256 (simétrico): [NewJWTManager]. Firma y valida con el mismo secreto.
+//   - ES256 (asimétrico, ECDSA P-256): [NewJWTManagerES256] firma con la clave
+//     privada y valida con la pública; [NewJWTVerifierES256] valida con SOLO la
+//     pública (para validadores que no emiten, p. ej. el BFF).
+//
+// Un manager valida EXCLUSIVAMENTE su propio algoritmo (guard anti
+// alg-confusion): un token HS256 verificado por un manager ES256 —o viceversa—
+// se rechaza con ErrInvalidToken.
+//
+// El nombre llega intacto desde auth.JWTManager. Renombrarlo al idiomático
+// jwt.Manager ampliaría el breaking de v0.3.0 más allá del cambio de import
+// path que los consumidores ya tienen inventariado, así que la decisión se
+// toma aparte y no colgada de esta migración.
+//
+//nolint:revive // jwt.JWTManager tartamudea; el rename se decide aparte
 type JWTManager struct {
 	issuer       string
 	method       jwt.SigningMethod
-	signKey      any
-	verifyKey    any
+	signKey      any // clave para firmar: []byte (HS256) o *ecdsa.PrivateKey (ES256); nil = solo validación.
+	verifyKey    any // clave para validar: []byte (HS256) o *ecdsa.PublicKey (ES256).
 	validMethods []string
-	kid          string
+	kid          string // si no está vacío, se estampa como header `kid` al emitir (para selección por MultiVerifier).
 }
 
+// NewJWTManager crea un JWTManager HS256 con el secreto y el issuer esperado.
+// Firma y valida con el mismo secreto (simétrico).
 func NewJWTManager(secretKey, issuer string) *JWTManager {
 	key := []byte(secretKey)
 	return &JWTManager{
@@ -32,6 +54,9 @@ func NewJWTManager(secretKey, issuer string) *JWTManager {
 	}
 }
 
+// NewJWTManagerES256 crea un JWTManager que FIRMA y valida con ES256 (ECDSA
+// P-256). Usa la clave privada para emitir y su pública para validar. Devuelve
+// ErrInvalidInput si privateKey es nil.
 func NewJWTManagerES256(privateKey *ecdsa.PrivateKey, issuer string) (*JWTManager, error) {
 	if privateKey == nil {
 		return nil, fmt.Errorf("%w: privateKey no puede ser nil", ErrInvalidInput)
@@ -45,6 +70,10 @@ func NewJWTManagerES256(privateKey *ecdsa.PrivateKey, issuer string) (*JWTManage
 	}, nil
 }
 
+// NewJWTVerifierES256 crea un JWTManager de SOLO validación con la clave pública
+// ES256. Es la construcción para validadores que no emiten (mínimo privilegio,
+// ADR-0019): al no tener clave privada no pueden forjar tokens y [GenerateToken]
+// devuelve ErrInvalidInput. Devuelve ErrInvalidInput si publicKey es nil.
 func NewJWTVerifierES256(publicKey *ecdsa.PublicKey, issuer string) (*JWTManager, error) {
 	if publicKey == nil {
 		return nil, fmt.Errorf("%w: publicKey no puede ser nil", ErrInvalidInput)
@@ -52,18 +81,36 @@ func NewJWTVerifierES256(publicKey *ecdsa.PublicKey, issuer string) (*JWTManager
 	return &JWTManager{
 		issuer:       issuer,
 		method:       jwt.SigningMethodES256,
-		signKey:      nil,
+		signKey:      nil, // verificador puro: no puede firmar.
 		verifyKey:    publicKey,
 		validMethods: []string{jwt.SigningMethodES256.Alg()},
 	}, nil
 }
 
+// WithKid devuelve una copia del manager que estampa el header `kid` indicado en
+// cada token que emita (ver [JWTManager.GenerateToken]). El `kid` permite al
+// [MultiVerifier] seleccionar la llave de verificación por token durante la
+// rotación/coexistencia de algoritmos (ADR-0019). Es aditivo: no altera la
+// firma ni los claims, y funciona con cualquier algoritmo del manager. Un `kid`
+// vacío deja el manager sin estampar (equivalente al original).
 func (m *JWTManager) WithKid(kid string) *JWTManager {
 	clone := *m
 	clone.kid = kid
 	return &clone
 }
 
+// GenerateToken firma un access token de usuario con el algoritmo del manager.
+//
+// Parámetros:
+//   - userID: identificador del usuario (requerido).
+//   - tenantID: tenant al que pertenece la sesión (requerido).
+//   - roles: roles asignados (snapshot informativo).
+//   - grants: grants efectivos ya resueltos (allow/deny) que el middleware
+//     evalúa por request.
+//   - ttl: duración hasta la expiración (mínimo 1 minuto).
+//
+// Devuelve el token firmado y su instante de expiración. Si el manager es un
+// verificador puro (sin clave de firma) devuelve ErrInvalidInput.
 func (m *JWTManager) GenerateToken(
 	userID, tenantID string,
 	roles []string,
@@ -114,6 +161,14 @@ func (m *JWTManager) GenerateToken(
 	return signedToken, expiresAt, nil
 }
 
+// ValidateToken parsea y valida un JWT: firma (con el algoritmo del manager),
+// issuer y expiración (`exp` obligatorio). Devuelve los claims o
+// ErrTokenExpired/ErrInvalidToken.
+//
+// El issuer lo verifica el propio parser vía [jwt.WithIssuer] (única fuente de
+// verdad); un issuer inesperado se propaga como ErrInvalidToken. El algoritmo se
+// restringe a [jwt.WithValidMethods] y, como defensa en profundidad, la keyfunc
+// exige que el `alg` del token coincida con el del manager (anti alg-confusion).
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 	parser := jwt.NewParser(
 		jwt.WithIssuer(m.issuer),

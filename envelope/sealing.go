@@ -33,10 +33,13 @@ func NewBoxSealer() *BoxSealer {
 	return &BoxSealer{}
 }
 
+// SealFor sella plaintext hacia recipientPub. Equivale a la función [SealFor].
 func (b *BoxSealer) SealFor(recipientPub, plaintext []byte) ([]byte, error) {
 	return SealFor(recipientPub, plaintext)
 }
 
+// OpenWith abre un sellado con la clave privada del destinatario. Equivale a la
+// función [OpenWith].
 func (b *BoxSealer) OpenWith(priv, sealed []byte) ([]byte, error) {
 	return OpenWith(priv, sealed)
 }

@@ -24,6 +24,8 @@ func (osEnvProvider) LookupEnv(key string) (string, bool) {
 type osFileReader struct{}
 
 func (osFileReader) ReadFile(path string) ([]byte, error) {
+	// #nosec G304 -- leer una ruta variable es justo el contrato de FileReader:
+	// la ruta la fija la aplicación en WithFile, no llega de una request.
 	return os.ReadFile(path)
 }
 
@@ -31,6 +33,7 @@ func (osFileReader) ReadFile(path string) ([]byte, error) {
 // ideal para inyección en pruebas unitarias.
 type MapEnvProvider map[string]string
 
+// LookupEnv busca la clave en el mapa, con la misma semántica que os.LookupEnv.
 func (m MapEnvProvider) LookupEnv(key string) (string, bool) {
 	v, ok := m[key]
 	return v, ok

@@ -9,8 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// TokenUseService es el valor del claim `token_use` que identifica un service
+// JWT (machine-to-machine), distinto del JWT de usuario. Evita que un token de
+// servicio se cuele por el middleware de usuario y viceversa.
 const TokenUseService = "service"
 
+// ServiceClaims representa los claims de un service JWT (autenticación M2M por
+// api-key/service-token). No lleva `user_id` ni grants de usuario: el caller
+// ya resolvió a quién afecta la operación. La autorización se hace por
+// `Scopes`, acotada al `TenantID` y validada contra la `aud` esperada.
 type ServiceClaims struct {
 	TokenUse string   `json:"token_use"`
 	ClientID string   `json:"client_id"`
@@ -19,6 +26,7 @@ type ServiceClaims struct {
 	jwt.RegisteredClaims
 }
 
+// HasScope indica si el service token incluye el scope dado.
 func (c *ServiceClaims) HasScope(scope string) bool {
 	for _, s := range c.Scopes {
 		if s == scope {
@@ -28,12 +36,21 @@ func (c *ServiceClaims) HasScope(scope string) bool {
 	return false
 }
 
+// ServiceJWTManager emite y valida service JWT (HS256). Usa su PROPIO secreto
+// (distinto del de usuarios) y valida `aud` además de `iss`, de modo que el
+// compromiso del secreto de un plano no afecte al otro.
 type ServiceJWTManager struct {
 	issuer    string
 	audience  string
 	secretKey []byte
 }
 
+// NewServiceJWTManager crea un ServiceJWTManager.
+//
+// Parámetros:
+//   - secretKey: secreto HS256 (≠ secreto de usuarios).
+//   - issuer: emisor esperado.
+//   - audience: servicio destino esperado (`aud`).
 func NewServiceJWTManager(secretKey, issuer, audience string) *ServiceJWTManager {
 	return &ServiceJWTManager{
 		secretKey: []byte(secretKey),
@@ -42,6 +59,14 @@ func NewServiceJWTManager(secretKey, issuer, audience string) *ServiceJWTManager
 	}
 }
 
+// GenerateServiceToken firma un service JWT para un cliente M2M acotado a un
+// tenant.
+//
+// Parámetros:
+//   - clientID: identificador del cliente M2M (requerido).
+//   - tenantID: tenant al que se acota el token (requerido).
+//   - scopes: scopes concedidos (ej. ["messages.send"]).
+//   - ttl: duración hasta la expiración (mínimo 1 minuto).
 func (m *ServiceJWTManager) GenerateServiceToken(
 	clientID, tenantID string,
 	scopes []string,
@@ -85,6 +110,9 @@ func (m *ServiceJWTManager) GenerateServiceToken(
 	return signedToken, expiresAt, nil
 }
 
+// ValidateServiceToken valida un service JWT completo: firma HS256 + iss + aud
+// + exp, y exige `token_use == "service"` para que un JWT de usuario no se
+// acepte en rutas de servicio.
 func (m *ServiceJWTManager) ValidateServiceToken(tokenString string) (*ServiceClaims, error) {
 	parser := jwt.NewParser(
 		jwt.WithIssuer(m.issuer),
