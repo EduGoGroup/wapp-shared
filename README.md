@@ -28,7 +28,7 @@ go get github.com/EduGoGroup/wapp-shared/config
 | `config` | Carga de configuracion desde archivo YAML con overlay de variables de entorno. | [README](config/README.md) | [CHANGELOG](config/CHANGELOG.md) |
 | `envelope` | Cifrado AES-256-GCM (DEK 32B) y sellado anonimo X25519 para blobs. | [README](envelope/README.md) | [CHANGELOG](envelope/CHANGELOG.md) |
 | `health` | Registro y agregacion de health checks (liveness/readiness). | [README](health/README.md) | [CHANGELOG](health/CHANGELOG.md) |
-| `auth` | JWT de usuario **ES256** (kid + MultiVerifier) + service token M2M HS256 + RBAC glob + bcrypt + refresh opaco. Sin paquete raiz: se importa `auth/jwt`, `auth/password` o `auth/rbac`. | [README](auth/README.md) | [CHANGELOG](auth/CHANGELOG.md) |
+| `auth` | El **plano de contexto** de wApp: JWT `{tenant_id, roles, grants}` **ES256** (kid + MultiVerifier) + service token M2M HS256. Desde v0.4.0 el RBAC, bcrypt y el refresh opaco son de `identity-shared/auth`. Unico paquete: `auth/jwt`. | [README](auth/README.md) | [CHANGELOG](auth/CHANGELOG.md) |
 | `intents` | Contrato canónico de configuración de intenciones por tenant del clasificador LLM y su validación estructural (tag `intents/v0.1.0`); lo consumen `wapp-edge-intent` y el Edge. | [README](intents/README.md) | [CHANGELOG](intents/CHANGELOG.md) |
 | `ui` | Design tokens y componentes CSS del ecosistema servidos desde Go con `embed.FS`; los consumen la Consola Cloud BFF y la Edge Agent UI. | [README](ui/README.md) | [CHANGELOG](ui/CHANGELOG.md) |
 

@@ -30,8 +30,7 @@ func TestServiceJWTManager_GenerateAndValidate(t *testing.T) {
 	assert.Equal(t, "tenant-1", claims.TenantID)
 	assert.Equal(t, jwt.TokenUseService, claims.TokenUse)
 	assert.Equal(t, "service:client-abc", claims.Subject)
-	assert.True(t, claims.HasScope("messages.send"))
-	assert.False(t, claims.HasScope("crypto.rekey"))
+	assert.Equal(t, scopes, claims.Scopes)
 }
 
 func TestServiceJWTManager_Validation(t *testing.T) {

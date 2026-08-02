@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EduGoGroup/identity-shared/auth/rbac"
 	"github.com/EduGoGroup/wapp-shared/auth/jwt"
-	"github.com/EduGoGroup/wapp-shared/auth/rbac"
 	jwt5 "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

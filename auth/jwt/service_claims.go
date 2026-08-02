@@ -26,16 +26,6 @@ type ServiceClaims struct {
 	jwt.RegisteredClaims
 }
 
-// HasScope indica si el service token incluye el scope dado.
-func (c *ServiceClaims) HasScope(scope string) bool {
-	for _, s := range c.Scopes {
-		if s == scope {
-			return true
-		}
-	}
-	return false
-}
-
 // ServiceJWTManager emite y valida service JWT (HS256). Usa su PROPIO secreto
 // (distinto del de usuarios) y valida `aud` además de `iss`, de modo que el
 // compromiso del secreto de un plano no afecte al otro.
