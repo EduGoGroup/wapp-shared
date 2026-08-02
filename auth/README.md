@@ -1,14 +1,20 @@
 # auth
 
-Primitivas **puras** de autenticación y autorización del ecosistema wApp: JWT
-de usuario **ES256** (ECDSA P-256, con `kid` y `MultiVerifier` para coexistencia
-de algoritmos; ADR-0019), service tokens M2M (HS256), bcrypt, refresh tokens
-opacos y RBAC por grants glob con cadena de roles. La firma HS256 sigue disponible
-en `JWTManager` para compatibilidad. Sin base de datos ni HTTP.
+El **plano de contexto** de wApp: emisión y verificación de los JWT que llevan
+`{tenant_id, user_id, roles, grants}` — **ES256** (ECDSA P-256, con `kid` y
+`MultiVerifier` para coexistencia de algoritmos; ADR-0019) — más los service
+tokens M2M (HS256). Lógica pura: sin base de datos ni HTTP.
 
-Es una **copia-adaptación** del módulo auth de EduGo (ADR-0004): se toma el
-patrón y se **simplifica** a `{tenant_id, user_id, roles, grants}` — sin la
-jerarquía escuela/unidad/ward. **No** importa ningún paquete de EduGo.
+Desde **v0.4.0 este módulo ya no hace identidad**. Los usuarios, sus
+credenciales y sus sesiones son de identity, el SSO del grupo, y su cerrajería
+vive en [`identity-shared/auth`](https://github.com/EduGoGroup/identity-shared)
+(identity ADR-0001):
+
+| Necesitas… | Impórtalo de |
+|---|---|
+| RBAC: `Grants`, `PermissionMatches`, `EvaluateGrants`, `ResolveRoleChain`, `MergeGrantChain` | `identity-shared/auth/rbac` |
+| Contraseñas: `HashPassword`, `VerifyPassword` | `identity-shared/auth/password` |
+| Refresh opaco: `GenerateRefreshToken`, `HashRefreshToken` | `identity-shared/auth/jwt` |
 
 ## Instalacion
 
@@ -16,9 +22,8 @@ jerarquía escuela/unidad/ward. **No** importa ningún paquete de EduGo.
 go get github.com/EduGoGroup/wapp-shared/auth
 ```
 
-El módulo **no expone paquete raíz**: se importa siempre el subpaquete concreto
-(`auth/jwt`, `auth/password`, `auth/rbac`). Desde `v0.3.0` el `package auth` a
-secas ya no existe.
+El módulo **no expone paquete raíz** (desde `v0.3.0` el `package auth` a secas
+ya no existe) y desde `v0.4.0` su único subpaquete es **`auth/jwt`**.
 
 ## Uso
 
@@ -28,8 +33,8 @@ package main
 import (
 	"time"
 
+	"github.com/EduGoGroup/identity-shared/auth/rbac"
 	"github.com/EduGoGroup/wapp-shared/auth/jwt"
-	"github.com/EduGoGroup/wapp-shared/auth/rbac"
 )
 
 func main() {
@@ -52,22 +57,27 @@ cualquiera de los dos nombres sin conversión.
 
 ## Piezas
 
-| Paquete / archivo | Qué expone |
+| Archivo | Qué expone |
 |---|---|
-| `jwt/jwt_manager.go` · `jwt/jwt_claims.go` | `JWTManager`, `Claims`, `Grants` (alias de `rbac.Grants`), `TokenUseAccess`/`TokenUseRefresh` |
+| `jwt/jwt_manager.go` · `jwt/jwt_claims.go` | `JWTManager`, `Claims`, `Grants` (alias de `rbac.Grants`), `TokenUseAccess` |
 | `jwt/jwt_multiverifier.go` | `MultiVerifier`, `VerifierKey`, `HS256VerifierKey`, `ES256VerifierKey` |
 | `jwt/service_claims.go` | `ServiceJWTManager`, `ServiceClaims`, `TokenUseService` (M2M por scopes) |
-| `jwt/refresh_token.go` | `RefreshToken`, `GenerateRefreshToken`, `HashToken` (refresh opaco + SHA256) |
-| `jwt/interfaces.go` · `jwt/errors.go` | `TokenGenerator`/`TokenVerifier`/`TokenManager`; `ErrInvalidInput`, `ErrTokenExpired`, `ErrInvalidToken` |
-| `password/password.go` · `password/interfaces.go` | `HashPassword`, `VerifyPassword` (bcrypt cost 12), `Hasher`, `DefaultHasher`, `NewHasher` |
-| `rbac/permission_matcher.go` | `Grants`, `PermissionMatches`, `EvaluateGrants` (glob, deny-precede-allow, default DENY) |
-| `rbac/role_chain.go` · `rbac/interfaces.go` | `ResolveRoleChain`, `MergeGrantChain` (herencia de roles); `PermissionEvaluator` |
+| `jwt/errors.go` | `ErrInvalidInput`, `ErrTokenExpired`, `ErrInvalidToken` |
+
+## Lo transitorio, declarado
+
+`ServiceJWTManager` (HS256, M2M) **muere en la Ola 3** de la migración a
+identity, cuando el M2M pase a Service Tokens ES256 canjeados contra el SSO
+(identity ADR-0025). Sigue aquí solo para no arrastrar dos migraciones a la vez.
+Lo mismo vale para `NewJWTManager` y `HS256VerifierKey`, que ya no firman ni
+verifican tokens de usuario en producción.
 
 ## RBAC — gramática de permisos
 
-`recurso.accion` con comodines: `*` (todo), `prefix.*` (subárbol),
-`*.suffix` (cualquier `<algo>.suffix`), `prefix.*.suffix`. La evaluación es
-**default DENY** y **deny precede a allow**.
+La define y la aplica `identity-shared/auth/rbac`; aquí solo se **transportan**
+los grants dentro de los claims. `recurso.accion` con comodines: `*` (todo),
+`prefix.*` (subárbol), `*.suffix`, `prefix.*.suffix`; evaluación **default
+DENY** y **deny precede a allow**.
 
-Roles canónicos: `tenant_admin` = `*`; `operator` = `flows.*, messages.send,
-media.*, contacts.read, integrations.read`; `viewer` = `*.read`.
+Roles canónicos de wApp: `tenant_admin` = `*`; `operator` = `flows.*,
+messages.send, media.*, contacts.read, integrations.read`; `viewer` = `*.read`.
