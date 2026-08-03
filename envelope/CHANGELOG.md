@@ -5,6 +5,24 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-02
+
+### Security
+
+- `golang.org/x/crypto` sube de `v0.51.0` a `v0.54.0`. `govulncheck` reporta
+  vulnerabilidades en la `v0.51.0` con arreglo publicado desde la `v0.52.0`;
+  ninguna es alcanzable desde este código hoy, pero `envelope` custodia los
+  sobres cifrados y lo que arrastre lo heredan `wapp-cloud-platform` y
+  `wapp-edge-agent`. Arrastra también `golang.org/x/sys` (indirecta) de la
+  `v0.44.0` a la `v0.47.0`.
+
+  Queda fuera **GO-2026-5932**, que aún no tiene versión con arreglo publicada.
+
+### Changed
+
+- El módulo publicado deja de declarar `go 1.26.0`: `main` ya estaba en
+  `go 1.26.5` y este es el primer release que lo hace viajar. Sin cambios de API.
+
 ## [0.2.0] - 2026-08-01
 
 ### Added
