@@ -3,6 +3,19 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 y [Versionado Semantico](https://semver.org/lang/es/).
 
+## [0.4.1] - 2026-08-11
+
+Release de mantenimiento: **solo dependencias**, sin un cambio de API ni de
+comportamiento. La API pública del módulo es idéntica símbolo a símbolo a la de
+`0.4.0`, así que actualizar es seguro para todos sus consumidores.
+
+### Changed
+
+- Sube `github.com/EduGoGroup/identity-shared/auth` de **0.3.0 a 0.3.1** (patch,
+  propuesto por Dependabot). Toca únicamente `auth/go.mod` y `auth/go.sum` — el
+  motor de RBAC que wApp importa del SSO del grupo desde la partición de la
+  `0.4.0`.
+
 ## [0.4.0] - 2026-08-02
 
 Partición por frontera: el módulo se parte en dos y **la mitad de identidad se
