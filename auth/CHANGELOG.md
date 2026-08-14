@@ -3,6 +3,25 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 y [Versionado Semantico](https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-08-14
+
+### Added
+
+- **`JWTManager.GenerateTenantlessToken(userID, ttl)`** — emite un access token
+  de usuario **sin tenant**: una identidad acreditada que todavía no pertenece a
+  ninguna empresa de wApp (wApp Plan 056 · T3.3 · D-056.12, el estado «en
+  espera»). **No acepta roles ni grants**, y esa ausencia ES la garantía: un
+  token sin tenant no puede salir de aquí llevando permisos, ni por error ni por
+  un descuido futuro. Emite `roles: []` y `grants: {allow: [], deny: []}`, de
+  modo que el default DENY del matcher lo cierra todo.
+  > Es **aditivo**: `GenerateToken` no cambia de firma ni de comportamiento, y
+  > **sigue rechazando** el `tenantID` vacío con `ErrInvalidInput`. Los claims de
+  > ambos emisores los arma la MISMA función privada, así que un token con tenant
+  > y uno sin él son idénticos campo a campo salvo por lo que trae el llamante.
+  > ⚠️ Añade un símbolo público ⇒ **bump MINOR** (`0.5.0`) y tag
+  > `auth/v0.5.0` **antes** de que `wapp-cloud-platform` mueva su `go.mod`
+  > (regla «shared va primero», tasks.md del Plan 056 §Leyenda).
+
 ## [0.4.1] - 2026-08-11
 
 Release de mantenimiento: **solo dependencias**, sin un cambio de API ni de

@@ -130,6 +130,53 @@ func (m *JWTManager) GenerateToken(
 		return "", time.Time{}, fmt.Errorf("%w: ttl debe ser mayor a 1 minuto", ErrInvalidInput)
 	}
 
+	return m.sign(userID, tenantID, roles, grants, ttl)
+}
+
+// GenerateTenantlessToken firma un access token de usuario SIN tenant: una
+// identidad acreditada que todavía no pertenece a ninguna empresa de wApp.
+//
+// Es el estado «en espera» (wApp Plan 056 · D-056.12): la persona entra, se ve a
+// sí misma y no puede hacer absolutamente nada, porque no hay tenant al que
+// acotar una operación ni un solo grant que evaluar. Es el mismo
+// `active_context = null` de EduGo.
+//
+// NO acepta roles ni grants, y eso es la garantía, no una simplificación: al no
+// existir el parámetro, no hay forma —ni por error ni por descuido futuro— de
+// que un token sin tenant salga de aquí llevando permisos. Un token así se
+// autentica pero no autoriza nada: el default DENY del matcher lo cierra todo.
+//
+// El resto de los claims es IDÉNTICO al de [JWTManager.GenerateToken] (misma
+// función privada los arma): mismo `token_use`, mismo `jti`, mismo issuer,
+// mismo `sub`/`iat`/`exp`/`nbf`, mismo `kid`.
+func (m *JWTManager) GenerateTenantlessToken(userID string, ttl time.Duration) (string, time.Time, error) {
+	if m.signKey == nil {
+		return "", time.Time{}, fmt.Errorf("%w: este manager es solo de validación (sin clave de firma)", ErrInvalidInput)
+	}
+	if userID == "" {
+		return "", time.Time{}, fmt.Errorf("%w: userID no puede estar vacío", ErrInvalidInput)
+	}
+	if ttl < time.Minute {
+		return "", time.Time{}, fmt.Errorf("%w: ttl debe ser mayor a 1 minuto", ErrInvalidInput)
+	}
+	// Listas VACÍAS y no nil: el wire format del token no cambia de forma por no
+	// haber tenant (`"roles":[]`, `"grants":{"allow":[],"deny":[]}`), así que
+	// ningún consumidor tiene que aprender a distinguir `[]` de `null`.
+	return m.sign(userID, "", []string{}, Grants{Allow: []string{}, Deny: []string{}}, ttl)
+}
+
+// sign arma los claims y firma. Es el ÚNICO sitio del módulo donde se construye
+// un access token de usuario: los dos emisores públicos se diferencian SOLO en
+// sus guardas de entrada, de modo que un token con tenant y uno sin él son el
+// mismo token campo a campo salvo por lo que el llamante trae.
+//
+// No valida nada: sus llamantes ya lo hicieron.
+func (m *JWTManager) sign(
+	userID, tenantID string,
+	roles []string,
+	grants Grants,
+	ttl time.Duration,
+) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(ttl)
 

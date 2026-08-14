@@ -39,6 +39,46 @@ func TestJWTManager_GenerateAndValidate(t *testing.T) {
 	assert.Equal(t, "user-1", claims.Subject)
 }
 
+// TestJWTManager_GenerateTenantlessToken cubre el emisor SIN tenant (wApp Plan
+// 056 · D-056.12): una identidad acreditada que todavía no pertenece a ninguna
+// empresa. El token es válido y no autoriza nada.
+func TestJWTManager_GenerateTenantlessToken(t *testing.T) {
+	t.Parallel()
+	m := jwt.NewJWTManager(testSecret, testIssuer)
+
+	token, expiresAt, err := m.GenerateTenantlessToken("user-1", time.Hour)
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+	assert.WithinDuration(t, time.Now().Add(time.Hour), expiresAt, 5*time.Second)
+
+	claims, err := m.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, "user-1", claims.UserID)
+	assert.Empty(t, claims.TenantID, "un token sin empresa no lleva tenant_id")
+	// Vacías pero NO nil: el wire format no cambia de forma por no haber tenant.
+	assert.Equal(t, []string{}, claims.Roles)
+	assert.Equal(t, []string{}, claims.Grants.Allow)
+	assert.Equal(t, []string{}, claims.Grants.Deny)
+	// Lo demás es idéntico a GenerateToken: misma función privada arma los claims.
+	assert.Equal(t, jwt.TokenUseAccess, claims.TokenUse)
+	assert.Equal(t, testIssuer, claims.Issuer)
+	assert.Equal(t, "user-1", claims.Subject)
+	assert.NotEmpty(t, claims.ID)
+	assert.False(t, rbac.EvaluateGrants(claims.Grants, "flows.read"),
+		"sin grants el default DENY tiene que cerrarlo todo")
+}
+
+func TestJWTManager_GenerateTenantlessTokenValidation(t *testing.T) {
+	t.Parallel()
+	m := jwt.NewJWTManager(testSecret, testIssuer)
+
+	_, _, err := m.GenerateTenantlessToken("", time.Hour)
+	assert.ErrorIs(t, err, jwt.ErrInvalidInput)
+
+	_, _, err = m.GenerateTenantlessToken("user-1", time.Second)
+	assert.ErrorIs(t, err, jwt.ErrInvalidInput)
+}
+
 func TestJWTManager_GenerateValidation(t *testing.T) {
 	t.Parallel()
 	m := jwt.NewJWTManager(testSecret, testIssuer)
