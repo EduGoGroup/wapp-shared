@@ -1,0 +1,15 @@
+/* ==========================================================================
+   wApp Theme — Consola de Plataforma Admin (Indigo / Deep Navy Palette)
+   ========================================================================== */
+
+:root {
+  --wapp-color-brand-primary: #4338CA;
+  --wapp-color-brand-on-primary: #FFFFFF;
+  --wapp-color-brand-container: #E0E7FF;
+  --wapp-color-brand-on-container: #1E1B4B;
+  --wapp-app-brand-accent: #4338CA;
+  --wapp-app-header-bg: #1E1B4B;
+  --wapp-app-header-fg: #EEF2FF;
+  --wapp-app-header-badge-bg: rgba(99, 102, 241, 0.2);
+  --wapp-app-header-badge-fg: #C7D2FE;
+}

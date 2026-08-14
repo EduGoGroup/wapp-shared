@@ -15,6 +15,7 @@ func TestGetCSS_Success(t *testing.T) {
 		"wapp-components.css",
 		"theme-bff.css",
 		"theme-edge.css",
+		"theme-platform.css",
 	}
 
 	for _, fileName := range cssFiles {
@@ -32,5 +33,5 @@ func TestFS_Subdirectory(t *testing.T) {
 
 	entries, err := fs.ReadDir(subFS, ".")
 	require.NoError(t, err, "fs.ReadDir en FS() debe ser exitoso")
-	assert.GreaterOrEqual(t, len(entries), 4, "Debe haber al menos 4 archivos CSS en el FS sub-enrutado")
+	assert.GreaterOrEqual(t, len(entries), 5, "Debe haber al menos 5 archivos CSS en el FS sub-enrutado")
 }
