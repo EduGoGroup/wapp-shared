@@ -5,6 +5,28 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-15
+
+### Added
+
+- **`theme-platform.css`** — tema de la Consola de Plataforma Admin (paleta
+  indigo / deep navy), el cuarto tema del ecosistema junto a `theme-bff.css`
+  (teal) y `theme-edge.css` (slate/blue). Redefine sobre los tokens base de
+  `wapp-tokens.css` la marca (`--wapp-color-brand-*`), el acento de la
+  aplicacion y la cabecera (`--wapp-app-header-*`), sin tocar ningun otro token.
+  Lo consume `wapp-platform-console` con `ui.GetCSS("theme-platform.css")`: sin
+  esta version su pantalla de login se sirve sin estilos.
+  > Es **aditivo**: entra por el `//go:embed css/*.css` ya existente, asi que
+  > `Assets`, `FS()` y `GetCSS` no cambian de firma ni de comportamiento y
+  > ningun CSS anterior se modifica. Aun asi amplia la superficie publica del
+  > modulo (un asset nuevo direccionable por nombre) ⇒ **bump MINOR** (`0.2.0`),
+  > no patch.
+
+### Changed
+
+- `ui_test.go` cubre el asset nuevo: `TestGetCSS_Success` lo incluye en su tabla
+  y `TestFS_Subdirectory` sube su cota de 4 a 5 archivos en el FS sub-enrutado.
+
 ## [0.1.0] - 2026-08-01
 
 ### Added
