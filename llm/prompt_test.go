@@ -20,10 +20,6 @@ func todosLosPrompts(t *testing.T) map[string]string {
 	t.Helper()
 	ref := time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC)
 	return map[string]string{
-		"ClassifyRequest": llm.BuildClassifyRequestPrompt(llm.ClassifyRequestInput{
-			Text:       textoAmbar,
-			Categories: []string{"intake_request", "saludo", "otro"},
-		}),
 		"ExtractMainIdeas": llm.BuildExtractMainIdeasPrompt(llm.ExtractMainIdeasInput{
 			SourceText: textoAmbar,
 		}),
@@ -70,18 +66,6 @@ func TestPrompts_LlevanLaVersionDelArtefacto(t *testing.T) {
 			assert.Contains(t, prompt, `"version": 1`)
 		})
 	}
-}
-
-func TestBuildClassifyRequestPrompt_ListaLasCategorias(t *testing.T) {
-	prompt := llm.BuildClassifyRequestPrompt(llm.ClassifyRequestInput{
-		Text:       textoAmbar,
-		Categories: []string{"intake_request", "saludo"},
-	})
-	assert.Contains(t, prompt, "- intake_request")
-	assert.Contains(t, prompt, "- saludo")
-	assert.Contains(t, prompt, "no inventes categorías nuevas")
-	// Categorías, no score: el número de confianza se pide EXPLÍCITAMENTE que no venga.
-	assert.Contains(t, prompt, "No devuelvas un número de confianza")
 }
 
 func TestBuildExtractItemSpecsPrompt_UnSoloItemConContexto(t *testing.T) {

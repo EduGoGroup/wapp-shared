@@ -37,32 +37,6 @@ var weekdaysES = [...]string{
 	"domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado",
 }
 
-// BuildClassifyRequestPrompt arma el prompt de ClassifyRequest.
-func BuildClassifyRequestPrompt(in ClassifyRequestInput) string {
-	categorias := make([]string, 0, len(in.Categories))
-	for _, c := range in.Categories {
-		categorias = append(categorias, "- "+c)
-	}
-
-	instruccion := `
-
-Clasifica el texto del cliente en UNA de estas categorías, copiada literal:
-` + strings.Join(categorias, "\n") + `
-
-Si ninguna encaja, elige la que menos se aleje: no inventes categorías nuevas.
-No devuelvas un número de confianza; la categoría es la respuesta.
-
-`
-	esquema := fmt.Sprintf(`
-
-Esquema de la respuesta:
-{"version": %d, "category": "...", "evidence": "..."}
-`, ArtifactVersion)
-
-	return promptHeader + instruccion + jsonOnlyRules + esquema +
-		"\nTexto del cliente:\n" + in.Text
-}
-
 // BuildExtractMainIdeasPrompt arma el prompt de la etapa P2.
 func BuildExtractMainIdeasPrompt(in ExtractMainIdeasInput) string {
 	instruccion := `

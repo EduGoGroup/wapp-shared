@@ -14,22 +14,6 @@ import (
 // medias.
 const ArtifactVersion = 1
 
-// Classification es el artefacto de ClassifyRequest.
-//
-// Lleva categoría y evidencia, y NO lleva score: la lección está medida (un
-// número continuo no se sostiene entre corridas; un conjunto pequeño de
-// categorías sí — design.md §3.2 del Plan 044).
-type Classification struct {
-	// Version es la versión del artefacto.
-	Version int `json:"version"`
-	// Category es una de las categorías que el caller ofreció, copiada literal.
-	// ParseClassification la comprueba contra ese conjunto cerrado: cualquier
-	// otro valor es ErrLLMQuality.
-	Category string `json:"category"`
-	// Evidence es la frase del texto original que sostiene la categoría.
-	Evidence string `json:"evidence"`
-}
-
 // MainIdeas es el artefacto de la etapa P2 (design.md §7.1).
 type MainIdeas struct {
 	// Version es la versión del artefacto.
@@ -163,35 +147,6 @@ const PlaceholderEsquema = "..."
 // El enum lo fija design.md §7.3 del Plan 044, que solo contempla el paquete
 // frente a la unidad suelta (campo omitido).
 const UnitKindPackage = "package"
-
-// ParseClassification lee el artefacto de ClassifyRequest.
-//
-// permitidas es el MISMO conjunto cerrado de categorías que se le ofreció al
-// modelo en ClassifyRequestInput.Categories. Se pide por parámetro porque el enum
-// no lo fija este paquete ni el design del Plan 044 —§3.2 solo deja escrito que
-// el score continuo no funciona y que las categorías sí, sin nombrarlas—: quien
-// las conoce es el caller.
-//
-// Sin ese conjunto no hay forma de separar una categoría real de un eco del
-// esquema del prompt, que es JSON perfectamente válido. Por eso una lista vacía
-// rechaza TODO artefacto: es un error de cableado del caller y tiene que fallar
-// ruidoso, no dejar pasar cualquier cosa.
-func ParseClassification(raw json.RawMessage, permitidas []string) (*Classification, error) {
-	var out Classification
-	if err := decodeArtifact(raw, &out); err != nil {
-		return nil, err
-	}
-	if err := checkVersion(out.Version); err != nil {
-		return nil, err
-	}
-	if err := validarEnum("category", out.Category, permitidas); err != nil {
-		return nil, err
-	}
-	if err := validarObligatorio("evidence", out.Evidence); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
 
 // ParseMainIdeas lee el artefacto de la etapa P2.
 //
@@ -394,21 +349,6 @@ func validarFechaEntrega(fecha string) error {
 		return fmt.Errorf("%w: delivery_date vale %q y no es una fecha AAAA-MM-DD", ErrLLMQuality, fecha)
 	}
 	return nil
-}
-
-// validarEnum exige que el valor sea uno de los permitidos, copiado literal.
-//
-// Un conjunto de permitidos vacío rechaza cualquier valor a propósito: significa
-// que el caller no declaró el enum, y adivinarlo aquí sería dejar pasar el eco
-// del esquema con la excusa de que «no había con qué comparar».
-func validarEnum(campo, valor string, permitidos []string) error {
-	for _, p := range permitidos {
-		if valor == p {
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: %s vale %q, que no es ninguno de los %d valores permitidos",
-		ErrLLMQuality, campo, valor, len(permitidos))
 }
 
 // validarObligatorio exige que el campo traiga texto de verdad: ni vacío, ni solo
