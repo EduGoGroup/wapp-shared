@@ -6,3 +6,4 @@ health|0|false|true
 auth|0|false|true
 intents|0|false|true
 ui|0|false|true
+llm|0|false|true
