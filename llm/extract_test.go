@@ -232,7 +232,7 @@ func TestExtractJSON_ProsaPreviaNoTapaElJSONBueno(t *testing.T) {
 // La segunda capa —la que caza el eco cuando NO hay valla— vive en los Parse*,
 // porque ninguna heurística de extracción puede distinguir un esquema repetido
 // de una respuesta: los dos son JSON válido. Ver
-// TestParseClassification_EcoDelEsquemaEsErrorDeCalidad.
+// TestParse_EcoDelEsquemaEsErrorDeCalidad.
 func TestExtractJSON_LaVallaGanaAlEcoDelEsquema(t *testing.T) {
 	// Mutación que lo pone rojo: en ExtractJSON, borrar la rama de fencedBlock y
 	// dejar `return extractFrom(raw)`. Entonces gana el eco, que va primero.

@@ -68,7 +68,6 @@ de cualquier otra fuente:
 
 | Metodo | Etapa | Artefacto |
 |---|---|---|
-| `ClassifyRequest` | — | `Classification` |
 | `ExtractMainIdeas` | P2 | `MainIdeas` |
 | `ExtractItemSpecs` | P3 (una llamada POR item) | `ItemSpecs` |
 | `NormalizeQuantities` | P4 | `Quantities` |
@@ -119,10 +118,6 @@ distinguirlo.
 Por eso los `Parse*` rechazan con `ErrLLMQuality`:
 
 - un campo obligatorio **vacio** o con el relleno `llm.PlaceholderEsquema` (`"..."`);
-- una `category` que **no este en el conjunto cerrado** que el caller declaro — por eso
-  `ParseClassification(raw, categorias)` recibe ese conjunto: el enum **no lo fija este
-  paquete**, lo conoce el caller (design.md §3.2 del Plan 044 solo deja escrito que el
-  score continuo no funciona y las categorias si);
 - un `delivery_date` que sea la plantilla `AAAA-MM-DD` y no una fecha;
 - un `unit_kind` fuera de `llm.UnitKindPackage`, un paquete de cero unidades, una `qty`
   por debajo de 1 o un rango que no es un rango.

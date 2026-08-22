@@ -31,21 +31,6 @@ type Options struct {
 	Temperature float64
 }
 
-// ClassifyRequestInput es la entrada de ClassifyRequest: un texto y el conjunto
-// CERRADO de categorías entre las que el modelo debe elegir una.
-//
-// Las categorías se pasan por parámetro y no se declaran aquí porque quien las
-// conoce es el caller. Y son categorías, no un score continuo: la lección está
-// medida (design.md §3.2 del Plan 044 — «score continuo no funciona, tres
-// categorías sí»), por eso el artefacto de esta tarea no lleva confianza.
-type ClassifyRequestInput struct {
-	// Text es el texto a clasificar, tal cual lo escribió el cliente.
-	Text string
-	// Categories son las etiquetas permitidas. El modelo debe devolver una de
-	// ellas, literal; el caller rechaza cualquier otra cosa.
-	Categories []string
-}
-
 // ExtractMainIdeasInput es la entrada de la etapa P2: el hilo agregado completo.
 type ExtractMainIdeasInput struct {
 	// SourceText es el hilo de la conversación ya agregado por la O1.
@@ -105,8 +90,6 @@ type GenerateQuoteTextInput struct {
 //
 //nolint:revive // llm.LLMProvider tartamudea; el nombre lo fijan REQ-01 y el ADR-0030, no se renombra.
 type LLMProvider interface {
-	// ClassifyRequest elige una de las categorías dadas para un texto.
-	ClassifyRequest(ctx context.Context, in ClassifyRequestInput, opts Options) (json.RawMessage, error)
 	// ExtractMainIdeas es la etapa P2: saca las ideas principales del hilo.
 	ExtractMainIdeas(ctx context.Context, in ExtractMainIdeasInput, opts Options) (json.RawMessage, error)
 	// ExtractItemSpecs es la etapa P3: especifica UN ítem por llamada.
