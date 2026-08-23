@@ -5,6 +5,8 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-22
+
 ### Added
 
 - Version inicial del modulo `llm`: el puerto unico con el que wApp habla con un
