@@ -5,7 +5,7 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-08-23
+## [0.2.0] - 2026-08-24
 
 ### Added
 
