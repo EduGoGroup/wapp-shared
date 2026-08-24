@@ -43,14 +43,25 @@
 // UNA implementación y a quien llama le da igual cuál es. El día que exista la
 // vía local se añade otra implementación del mismo puerto.
 //
-// # Trucos de la vía local, anotados antes de que exista (D-044.4)
+// # Trucos de la vía local (D-044.4, acotada por D-044.29)
 //
-// La implementación local (Ollama) no se cablea en el Plan 044, pero sus trucos
-// ya están medidos y se dejan escritos para que los herede sin volver a pagarlos:
+// D-044.4 decía que la implementación local no se cablearía en el Plan 044; la
+// DEROGA D-044.29: la vía local existe, y su adaptador vive en cloud-platform —no
+// aquí—, hablando el frame de inferencia de CloudLink contra el Ollama del Edge.
+// Los trucos ya estaban medidos y se dejaron escritos para que los heredara sin
+// volver a pagarlos:
 // POST /api/generate con stream:false, format:"json", think:false SIEMPRE (qwen3
 // con format json y thinking activo emite un objeto vacío) y
 // options.temperature 0 (sin fijarla Ollama usa 0.8 y el veredicto parpadea
 // entre corridas). Ver design.md §3.1 del Plan 044.
 //
-// El paquete no depende de otros módulos de wapp-shared: solo stdlib.
+// # Solo stdlib, y es un invariante
+//
+// El paquete no depende de otros módulos de wapp-shared: solo stdlib. No es una
+// casualidad que se pueda romper sin coste. La tentación concreta la trae P1: el
+// catálogo de intenciones contra el que clasifica vive en wapp-shared/intents, y
+// pasarlo como *intents.Config aquí ataría el puerto genérico del modelo al
+// contrato de negocio de un tenant y su cadencia de releases. Por eso
+// ClassifyRequestInput lo recibe aplanado (IntentSpec), y quien aplana es el
+// caller, que ya tiene la config en la mano.
 package llm

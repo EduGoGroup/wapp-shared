@@ -37,6 +37,100 @@ var weekdaysES = [...]string{
 	"domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado",
 }
 
+// confianzaDelEjemplo es la confianza que llevan los ejemplos del few-shot: son
+// positivos por construcción, así que va alta y fija. Es el mismo 0.9 que usa el
+// clasificador que corre en el Edge, para que un mismo catálogo enseñe lo mismo
+// por las dos vías.
+const confianzaDelEjemplo = 0.9
+
+// BuildClassifyRequestPrompt arma el prompt de la etapa P1.
+//
+// Sigue la forma del clasificador que YA corre en campo (wapp-edge-intent) porque
+// esa forma está medida: catálogo con descripción, pistas de vocabulario, reglas
+// duras y, sobre todo, ejemplos. Ver IntentExample: el few-shot es lo que sostiene
+// el mapeo en un modelo chico, que es el que ejecuta la vía local.
+func BuildClassifyRequestPrompt(in ClassifyRequestInput) string {
+	var b strings.Builder
+
+	b.WriteString(`
+
+Clasifica el mensaje del cliente en UNA de estas intenciones, copiando su nombre
+literal:
+`)
+	for _, it := range in.Catalog {
+		fmt.Fprintf(&b, "- %s: %s", it.Name, it.Description)
+		if len(it.Params) > 0 {
+			fmt.Fprintf(&b, " (extrae estos parámetros: %s)", strings.Join(it.Params, ", "))
+		}
+		b.WriteByte('\n')
+	}
+
+	if len(in.Vocabulary) > 0 {
+		fmt.Fprintf(&b, "\nVocabulario del negocio (pistas de dominio): %s\n",
+			strings.Join(in.Vocabulary, ", "))
+	}
+
+	b.WriteString(`
+Reglas de la clasificación:
+- No inventes intenciones: el nombre que devuelvas tiene que estar en la lista.
+- confidence es un número entre 0 y 1 y mide lo seguro que estás. No uses
+  porcentajes ni una escala del 1 al 100.
+- En params pon SOLO lo que el cliente dijo explícitamente, con los nombres de
+  parámetro que declara la intención elegida y ningún otro. Si no dijo ninguno,
+  deja params vacío: no inventes valores.
+`)
+	if in.UnknownLabel != "" {
+		fmt.Fprintf(&b, "- Si el mensaje es ambiguo o no encaja en ninguna intención, responde %q\n"+
+			"  con la confianza que corresponda.\n", in.UnknownLabel)
+	}
+	b.WriteString("\n")
+
+	esquema := fmt.Sprintf(`
+
+Esquema de la respuesta:
+{"version": %d, "intent": "...", "confidence": 0.0,
+ "params": {"nombre_del_parametro": "..."}, "evidence": "..."}
+`, ArtifactVersion)
+
+	return promptHeader + b.String() + jsonOnlyRules + esquema +
+		fewShotDeIntents(in.Catalog) +
+		"\nMensaje del cliente:\n" + in.Text
+}
+
+// fewShotDeIntents serializa los ejemplos del catálogo con la MISMA forma que se
+// le pide al modelo que devuelva. Un catálogo sin ejemplos devuelve la cadena
+// vacía: el prompt sigue siendo válido, solo más flojo.
+//
+// Los ejemplos van DESPUÉS del esquema a propósito: ExtractJSON toma el primer
+// objeto que balancee, así que el esquema —el que los Parse* saben rechazar— es
+// lo que sale cuando un modelo hace eco del prompt entero.
+func fewShotDeIntents(catalogo []IntentSpec) string {
+	var b strings.Builder
+	for _, it := range catalogo {
+		for _, ej := range it.Examples {
+			// Las claves se imprimen SIEMPRE, sin omitir las vacías: el ejemplo
+			// con `"params": {}` es justo el que enseña qué hacer cuando el
+			// cliente no dijo ningún parámetro.
+			params := ej.Params
+			if params == nil {
+				params = map[string]string{}
+			}
+			shot := struct {
+				Version    int               `json:"version"`
+				Intent     string            `json:"intent"`
+				Confidence float64           `json:"confidence"`
+				Params     map[string]string `json:"params"`
+				Evidence   string            `json:"evidence"`
+			}{ArtifactVersion, it.Name, confianzaDelEjemplo, params, ej.Message}
+			fmt.Fprintf(&b, "%q -> %s\n", ej.Message, marshalForPrompt(shot))
+		}
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "\nEjemplos (mensaje del cliente -> respuesta esperada):\n" + b.String()
+}
+
 // BuildExtractMainIdeasPrompt arma el prompt de la etapa P2.
 func BuildExtractMainIdeasPrompt(in ExtractMainIdeasInput) string {
 	instruccion := `

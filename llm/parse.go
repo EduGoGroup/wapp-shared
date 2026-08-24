@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 )
@@ -13,6 +15,32 @@ import (
 // un cambio de forma sea un rechazo explícito y no una lectura silenciosa a
 // medias.
 const ArtifactVersion = 1
+
+// Classification es el artefacto de la etapa P1.
+//
+// Lleva la MISMA forma que ya produce el clasificador que corre en el Edge
+// (wapp-edge-intent: intent + params + confidence), más la version del artefacto y
+// la evidencia que este paquete le exige a toda etapa. Que las dos formas
+// coincidan no es casualidad: es lo que permite que la vía local y la vía API
+// respondan lo mismo y que el caller no sepa por cuál vino.
+type Classification struct {
+	// Version es la versión del artefacto.
+	Version int `json:"version"`
+	// Intent es el nombre de la intención elegida, copiado literal del catálogo
+	// —o la etiqueta de lo desconocido, si el caller la declaró—.
+	Intent string `json:"intent"`
+	// Confidence es la confianza del modelo, acotada a [0,1]. Quien la compara
+	// contra el umbral del tenant es el CALLER, nunca este paquete.
+	Confidence float64 `json:"confidence"`
+	// Params son los valores extraídos, por nombre de parámetro. Este paquete NO
+	// los sanea contra el texto original —ese allowlist lo aplica el caller, que
+	// es quien tiene el texto—: aquí solo se rechaza el relleno del esquema.
+	Params map[string]string `json:"params,omitempty"`
+	// Evidence es la frase del texto original que sostiene la intención. Es
+	// obligatoria salvo cuando Intent es la etiqueta de lo desconocido: no haber
+	// entendido nada no tiene ninguna frase que copiar.
+	Evidence string `json:"evidence"`
+}
 
 // MainIdeas es el artefacto de la etapa P2 (design.md §7.1).
 type MainIdeas struct {
@@ -147,6 +175,98 @@ const PlaceholderEsquema = "..."
 // El enum lo fija design.md §7.3 del Plan 044, que solo contempla el paquete
 // frente a la unidad suelta (campo omitido).
 const UnitKindPackage = "package"
+
+// ParseClassification lee el artefacto de la etapa P1.
+//
+// Recibe la MISMA entrada con la que se armó el prompt, y no una lista de
+// nombres suelta, por una razón concreta: el conjunto de valores aceptables es
+// exactamente el que el prompt le ofreció al modelo, y pasarlo dos veces por
+// separado es la forma de que un día dejen de coincidir. De ahí salen también las
+// dos cosas que el parser necesita y que un []string no lleva: los nombres del
+// catálogo y la etiqueta de lo desconocido.
+//
+// Un catálogo vacío (y sin etiqueta de escape) rechaza TODO artefacto, a
+// propósito: significa que el caller no declaró contra qué clasificar, y eso tiene
+// que fallar ruidoso. Dejar pasar «lo que sea porque no había con qué comparar»
+// sería abrirle la puerta al eco del esquema, que es JSON perfectamente válido.
+func ParseClassification(raw json.RawMessage, in ClassifyRequestInput) (*Classification, error) {
+	var out Classification
+	if err := decodeArtifact(raw, &out); err != nil {
+		return nil, err
+	}
+	if err := checkVersion(out.Version); err != nil {
+		return nil, err
+	}
+	if err := validarEnum("intent", out.Intent, intentsPermitidos(in)); err != nil {
+		return nil, err
+	}
+	if err := validarConfianza(out.Confidence); err != nil {
+		return nil, err
+	}
+	if err := validarParams(out.Params); err != nil {
+		return nil, err
+	}
+	// La evidencia es obligatoria salvo en la respuesta «no entendí»: exigirle una
+	// frase literal a quien acaba de decir que no encaja nada solo consigue que el
+	// caller pague un reintento para volver a oír lo mismo.
+	if in.UnknownLabel != "" && out.Intent == in.UnknownLabel {
+		if err := validarOpcional("evidence", out.Evidence); err != nil {
+			return nil, err
+		}
+		return &out, nil
+	}
+	if err := validarObligatorio("evidence", out.Evidence); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// intentsPermitidos es el conjunto cerrado que puede salir de P1: los nombres del
+// catálogo más la etiqueta de lo desconocido, que se acepta SIN estar declarada
+// como intención (en el contrato de wApp está prohibido declararla).
+func intentsPermitidos(in ClassifyRequestInput) []string {
+	permitidos := make([]string, 0, len(in.Catalog)+1)
+	for _, it := range in.Catalog {
+		permitidos = append(permitidos, it.Name)
+	}
+	if in.UnknownLabel != "" {
+		permitidos = append(permitidos, in.UnknownLabel)
+	}
+	return permitidos
+}
+
+// validarConfianza exige que la confianza esté dentro de [0,1].
+//
+// No es cosmética. El umbral del tenant solo significa algo si el número está
+// acotado, y está MEDIDO en campo (wapp-edge-intent, classifier.go) que sin acotar
+// el rango el modelo devuelve «100 de confianza» y entonces ninguna respuesta cae
+// jamás por debajo de ningún umbral: pasa todo, incluido lo que el modelo no
+// entendió. Allí quien acota es la gramática que Ollama fuerza; aquí, donde el
+// proveedor responde texto libre y no hay gramática ninguna, el único sitio donde
+// se puede acotar es éste.
+func validarConfianza(c float64) error {
+	if c < 0 || c > 1 {
+		return fmt.Errorf("%w: confidence vale %v, fuera del rango [0,1]: contra un número sin acotar el umbral del tenant no significa nada",
+			ErrLLMQuality, c)
+	}
+	return nil
+}
+
+// validarParams rechaza los parámetros que traen el relleno del esquema. Un valor
+// VACÍO sí pasa: significa «el cliente no lo dijo», y quien decide si un parámetro
+// vacío sirve es el caller, que además lo contrasta contra el texto original.
+//
+// Las claves se recorren ordenadas para que el error nombre siempre el mismo
+// parámetro: el orden de un mapa en Go es aleatorio, y un mensaje que cambia entre
+// corridas es un mensaje que nadie puede reproducir.
+func validarParams(params map[string]string) error {
+	for _, k := range slices.Sorted(maps.Keys(params)) {
+		if err := validarOpcional(fmt.Sprintf("params[%q]", k), params[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // ParseMainIdeas lee el artefacto de la etapa P2.
 //
@@ -349,6 +469,21 @@ func validarFechaEntrega(fecha string) error {
 		return fmt.Errorf("%w: delivery_date vale %q y no es una fecha AAAA-MM-DD", ErrLLMQuality, fecha)
 	}
 	return nil
+}
+
+// validarEnum exige que el valor sea uno de los permitidos, copiado literal.
+//
+// Un conjunto de permitidos vacío rechaza cualquier valor a propósito: significa
+// que el caller no declaró el enum, y adivinarlo aquí sería dejar pasar el eco
+// del esquema con la excusa de que «no había con qué comparar».
+func validarEnum(campo, valor string, permitidos []string) error {
+	for _, p := range permitidos {
+		if valor == p {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s vale %q, que no es ninguno de los %d valores permitidos",
+		ErrLLMQuality, campo, valor, len(permitidos))
 }
 
 // validarObligatorio exige que el campo traiga texto de verdad: ni vacío, ni solo
