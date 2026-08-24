@@ -68,6 +68,7 @@ de cualquier otra fuente:
 
 | Metodo | Etapa | Artefacto |
 |---|---|---|
+| `ClassifyRequest` | P1 | `Classification` |
 | `ExtractMainIdeas` | P2 | `MainIdeas` |
 | `ExtractItemSpecs` | P3 (una llamada POR item) | `ItemSpecs` |
 | `NormalizeQuantities` | P4 | `Quantities` |
@@ -110,7 +111,7 @@ Aisla el objeto JSON de la salida cruda, en este orden:
 ### Capa 2 — los `Parse<Artefacto>`
 
 La extraccion sola **no basta**, y esto no es una precaucion teorica: los prompts imprimen
-el esquema de la respuesta (`{"version": 1, "category": "...", "evidence": "..."}`), asi
+el esquema de la respuesta (`{"version": 1, "intent": "...", "confidence": 0.0, ...}`), asi
 que un modelo que lo repita produce **JSON valido**, con la `version` correcta, que sale
 de `ExtractJSON` como si fuera una respuesta. Ninguna heuristica de extraccion puede
 distinguirlo.
@@ -118,6 +119,15 @@ distinguirlo.
 Por eso los `Parse*` rechazan con `ErrLLMQuality`:
 
 - un campo obligatorio **vacio** o con el relleno `llm.PlaceholderEsquema` (`"..."`);
+- un `intent` que **no este en el catalogo cerrado** que el caller declaro — por eso
+  `ParseClassification(raw, in)` recibe la MISMA `ClassifyRequestInput` con la que se
+  armo el prompt: el catalogo **no lo fija este paquete**, lo configura cada tenant, y
+  pasarlo dos veces por separado es la forma de que un dia dejen de coincidir. Un
+  catalogo vacio rechaza **todo**: es un cableado roto y tiene que fallar ruidoso;
+- una `confidence` **fuera de `[0,1]`**. No es cosmetica: esta medido en campo que sin
+  acotar el rango el modelo devuelve «100 de confianza» y entonces nada cae nunca por
+  debajo del umbral del tenant. Quien compara contra ese umbral —y quien sanea los
+  `params` contra el texto original— es el **caller**, nunca este paquete;
 - un `delivery_date` que sea la plantilla `AAAA-MM-DD` y no una fecha;
 - un `unit_kind` fuera de `llm.UnitKindPackage`, un paquete de cero unidades, una `qty`
   por debajo de 1 o un rango que no es un rango.

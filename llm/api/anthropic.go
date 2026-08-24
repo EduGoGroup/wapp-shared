@@ -45,6 +45,10 @@ func newAnthropic(cfg Config) *anthropicProvider {
 	return &anthropicProvider{cfg: cfg, client: newHTTPClient(cfg)}
 }
 
+func (p *anthropicProvider) ClassifyRequest(ctx context.Context, in llm.ClassifyRequestInput, opts llm.Options) (json.RawMessage, error) {
+	return p.run(ctx, llm.BuildClassifyRequestPrompt(in), opts)
+}
+
 func (p *anthropicProvider) ExtractMainIdeas(ctx context.Context, in llm.ExtractMainIdeasInput, opts llm.Options) (json.RawMessage, error) {
 	return p.run(ctx, llm.BuildExtractMainIdeasPrompt(in), opts)
 }

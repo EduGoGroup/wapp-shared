@@ -83,6 +83,161 @@ func TestParseQuoteText_Completo(t *testing.T) {
 	assert.Equal(t, "Hola, te paso el detalle", out.Text)
 }
 
+func TestParseClassification_Completo(t *testing.T) {
+	out, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "consulta_estado", "confidence": 0.82,
+		  "params": {"numero_pedido": "42"}, "evidence": "cómo va el pedido 42"}`),
+		entradaDeClasificacion())
+	require.NoError(t, err)
+	assert.Equal(t, "consulta_estado", out.Intent)
+	assert.InDelta(t, 0.82, out.Confidence, 1e-9)
+	assert.Equal(t, map[string]string{"numero_pedido": "42"}, out.Params)
+	// El parser NO aplica el umbral ni sanea los params contra el texto: eso es
+	// del caller, que es quien tiene el texto original y la config del tenant.
+	assert.Equal(t, "cómo va el pedido 42", out.Evidence)
+}
+
+func TestParseClassification_IntentFueraDelCatalogoEsErrorDeCalidad(t *testing.T) {
+	// Mutación que lo pone rojo: en ParseClassification, borrar la llamada a
+	// validarEnum. Los cuatro casos vuelven a aceptarse en silencio.
+	fuera := []string{
+		`{"version": 1, "intent": "intake_requests", "confidence": 0.9, "evidence": "quiero una torta"}`,
+		`{"version": 1, "intent": "Intake_Request", "confidence": 0.9, "evidence": "quiero una torta"}`,
+		`{"version": 1, "intent": "", "confidence": 0.9, "evidence": "quiero una torta"}`,
+		`{"version": 1, "confidence": 0.9, "evidence": "quiero una torta"}`,
+	}
+	for _, raw := range fuera {
+		out, err := llm.ParseClassification(json.RawMessage(raw), entradaDeClasificacion())
+		requiereErrorDeCalidad(t, err)
+		assert.Nil(t, out)
+	}
+}
+
+func TestParseClassification_SinCatalogoDeclaradoNoPasaNada(t *testing.T) {
+	// Un caller que no declara su catálogo es un cableado roto y tiene que fallar
+	// ruidoso: si aquí se dejara pasar «lo que sea» porque no hay con qué
+	// comparar, el eco del esquema entraría sin error por esa puerta.
+	// Mutación que lo pone rojo: en validarEnum, devolver nil cuando
+	// len(permitidos) == 0.
+	out, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "intake_request", "confidence": 0.9, "evidence": "quiero una torta"}`),
+		llm.ClassifyRequestInput{Text: textoAmbar})
+	requiereErrorDeCalidad(t, err)
+	assert.Nil(t, out)
+}
+
+func TestParseClassification_ConfianzaFueraDeRangoEsErrorDeCalidad(t *testing.T) {
+	// Está MEDIDO en campo (wapp-edge-intent): sin acotar el rango el modelo
+	// devuelve «100 de confianza» y entonces NADA cae nunca por debajo del umbral
+	// del tenant — pasa todo, incluido lo que el modelo no entendió. Allí acota la
+	// gramática de Ollama; aquí, con un proveedor que responde texto libre, este
+	// parser es el único sitio donde se puede acotar.
+	// Mutación que lo pone rojo: en ParseClassification, borrar la llamada a
+	// validarConfianza.
+	for _, raw := range []string{
+		`{"version": 1, "intent": "intake_request", "confidence": 100, "evidence": "quiero una torta"}`,
+		`{"version": 1, "intent": "intake_request", "confidence": 1.0001, "evidence": "quiero una torta"}`,
+		`{"version": 1, "intent": "intake_request", "confidence": -0.5, "evidence": "quiero una torta"}`,
+	} {
+		out, err := llm.ParseClassification(json.RawMessage(raw), entradaDeClasificacion())
+		requiereErrorDeCalidad(t, err)
+		assert.Nil(t, out)
+	}
+
+	// Los extremos SÍ son válidos: 0 es «no tengo ni idea», y quien decide qué
+	// hacer con esa cifra es el umbral del caller, no este parser.
+	for _, raw := range []string{
+		`{"version": 1, "intent": "intake_request", "confidence": 0, "evidence": "quiero una torta"}`,
+		`{"version": 1, "intent": "intake_request", "confidence": 1, "evidence": "quiero una torta"}`,
+	} {
+		_, err := llm.ParseClassification(json.RawMessage(raw), entradaDeClasificacion())
+		require.NoError(t, err)
+	}
+}
+
+func TestParseClassification_LoDesconocidoNoNecesitaEvidencia(t *testing.T) {
+	// La etiqueta de escape se acepta SIN estar en el catálogo (en el contrato de
+	// wApp está prohibido declararla) y sin evidencia: exigirle una frase literal
+	// a quien acaba de decir que no entendió solo consigue que el caller pague un
+	// reintento para volver a oír lo mismo.
+	// Mutación que lo pone rojo: en ParseClassification, usar validarObligatorio
+	// también para la rama de UnknownLabel.
+	out, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "desconocido", "confidence": 0.1}`),
+		entradaDeClasificacion())
+	require.NoError(t, err)
+	assert.Equal(t, "desconocido", out.Intent)
+
+	// Una intención REAL sin evidencia sigue siendo un artefacto hueco.
+	sinEvidencia, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "intake_request", "confidence": 0.9}`),
+		entradaDeClasificacion())
+	requiereErrorDeCalidad(t, err)
+	assert.Nil(t, sinEvidencia)
+
+	// Y ni siquiera lo desconocido puede traer el relleno del esquema: omitir la
+	// evidencia es una respuesta, copiar el esquema no lo es.
+	conRelleno, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "desconocido", "confidence": 0.1, "evidence": "..."}`),
+		entradaDeClasificacion())
+	requiereErrorDeCalidad(t, err)
+	assert.Nil(t, conRelleno)
+}
+
+func TestParseClassification_ParamVacioPasaYElRellenoNo(t *testing.T) {
+	// Un param VACÍO significa «el cliente no lo dijo», y quien decide si eso
+	// sirve es el caller, que además lo contrasta contra el texto original. El
+	// relleno del esquema no significa nada: es el modelo copiando el prompt.
+	// Mutación que lo pone rojo: en validarParams, cambiar validarOpcional por
+	// validarObligatorio (el primer caso se vuelve rojo) o borrar la llamada (el
+	// segundo deja de fallar).
+	_, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "consulta_estado", "confidence": 0.7,
+		  "params": {"numero_pedido": ""}, "evidence": "cómo va mi pedido"}`),
+		entradaDeClasificacion())
+	require.NoError(t, err)
+
+	out, err := llm.ParseClassification(json.RawMessage(
+		`{"version": 1, "intent": "consulta_estado", "confidence": 0.7,
+		  "params": {"numero_pedido": "..."}, "evidence": "cómo va mi pedido"}`),
+		entradaDeClasificacion())
+	requiereErrorDeCalidad(t, err)
+	assert.Nil(t, out)
+}
+
+// ecoDelEsquemaDeClassify saca del prompt REAL el objeto que el modelo puede
+// repetir: se lo pasa a ExtractJSON tal cual y lo que sale es el esquema.
+//
+// El require.NoError de aquí no es decorado, es la prueba del agujero: ExtractJSON
+// mira el prompt entero y devuelve su esquema como si fuera una respuesta. Ninguna
+// heurística de extracción puede evitarlo —el esquema es JSON válido—, así que
+// quien tiene que rechazarlo es ParseClassification.
+func ecoDelEsquemaDeClassify(t *testing.T) json.RawMessage {
+	t.Helper()
+	eco, err := llm.ExtractJSON(llm.BuildClassifyRequestPrompt(entradaDeClasificacion()))
+	require.NoError(t, err, "el prompt imprime el esquema y ExtractJSON lo saca: ése es el eco que hay que cazar aguas abajo")
+	assert.Contains(t, string(eco), llm.PlaceholderEsquema)
+	return eco
+}
+
+func TestParseClassification_EcoDelEsquemaEsErrorDeCalidad(t *testing.T) {
+	// Es el peor modo de fallo del pipeline: un artefacto falso aceptado en
+	// silencio, con Intent valiendo el relleno del esquema, contaminando todo lo
+	// que venga detrás sin que nadie vea un error.
+	//
+	// Este test NO pinea ninguna guarda en concreto, y decirlo importa: el esquema
+	// de P1 imprime el relleno en TRES campos —intent, el valor del param y
+	// evidence—, así que lo cazan tres guardas independientes y quitar cualquiera
+	// de ellas lo deja igual de verde (medido: quitando validarEnum y validarParams
+	// a la vez, sigue pasando por validarObligatorio de evidence). Lo que este test
+	// afirma es el resultado —el eco del prompt REAL no entra—, no el mecanismo.
+	// Quien pinea el enum es TestParseClassification_IntentFueraDelCatalogoEsErrorDeCalidad,
+	// cuyos casos traen evidencia y confianza buenas y solo fallan por el enum.
+	out, err := llm.ParseClassification(ecoDelEsquemaDeClassify(t), entradaDeClasificacion())
+	requiereErrorDeCalidad(t, err)
+	assert.Nil(t, out)
+}
+
 // casoEco empareja un eco del esquema de prompt.go con el Parse* que lo recibe.
 type casoEco struct {
 	nombre string
@@ -106,6 +261,13 @@ func errDeMainIdeas(raw json.RawMessage) error  { _, err := llm.ParseMainIdeas(r
 func errDeItemSpecs(raw json.RawMessage) error  { _, err := llm.ParseItemSpecs(raw); return err }
 func errDeQuantities(raw json.RawMessage) error { _, err := llm.ParseQuantities(raw); return err }
 func errDeQuoteText(raw json.RawMessage) error  { _, err := llm.ParseQuoteText(raw); return err }
+
+// P1 necesita su entrada para conocer el catálogo, así que su adaptador la cierra
+// dentro en vez de recibirla.
+func errDeClassification(raw json.RawMessage) error {
+	_, err := llm.ParseClassification(raw, entradaDeClasificacion())
+	return err
+}
 
 func TestParse_EcoDelEsquemaEsErrorDeCalidad(t *testing.T) {
 	// Los raw de esta tabla son los esquemas que imprime prompt.go, copiados sin
@@ -167,6 +329,14 @@ func TestParse_CampoObligatorioVacioEsErrorDeCalidad(t *testing.T) {
 	// Mutación que lo pone rojo: en validarObligatorio, quitar la rama del campo
 	// vacío (dejar solo el rechazo del PlaceholderEsquema).
 	correrCasosEco(t, []casoEco{
+		{
+			// El eco del esquema de P1 lo caza el enum de intent, no esta rama;
+			// la evidencia vacía con una intención REAL es el caso que solo
+			// depende de validarObligatorio.
+			nombre: "P1 · evidencia vacía con una intención del catálogo",
+			parse:  errDeClassification,
+			raw:    `{"version": 1, "intent": "intake_request", "confidence": 0.9, "evidence": ""}`,
+		},
 		{
 			nombre: "P2 · idea vacía",
 			parse:  errDeMainIdeas,

@@ -95,6 +95,10 @@ func TestGemini_SeConstruyeYFallaNombrado(t *testing.T) {
 
 	ctx := context.Background()
 	llamadas := map[string]func() error{
+		"ClassifyRequest": func() error {
+			_, err := p.ClassifyRequest(ctx, llm.ClassifyRequestInput{}, llm.Options{})
+			return err
+		},
 		"ExtractMainIdeas": func() error {
 			_, err := p.ExtractMainIdeas(ctx, llm.ExtractMainIdeasInput{}, llm.Options{})
 			return err
