@@ -29,6 +29,10 @@ func newGemini(cfg Config) *geminiProvider {
 	return &geminiProvider{cfg: cfg}
 }
 
+func (p *geminiProvider) ClassifyRequest(_ context.Context, _ llm.ClassifyRequestInput, _ llm.Options) (json.RawMessage, error) {
+	return nil, p.unavailable("ClassifyRequest")
+}
+
 func (p *geminiProvider) ExtractMainIdeas(_ context.Context, _ llm.ExtractMainIdeasInput, _ llm.Options) (json.RawMessage, error) {
 	return nil, p.unavailable("ExtractMainIdeas")
 }

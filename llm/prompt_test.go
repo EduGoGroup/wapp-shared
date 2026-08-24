@@ -14,12 +14,54 @@ import (
 const textoAmbar = "hola, quería encargar una torta para el miércoles de la semana que viene " +
 	"y un paquete de tequeños congelados de 30"
 
+// etiquetaDesconocido es la etiqueta de escape que declara el caller. En wApp la
+// fija wapp-shared/intents (ReservedUnknown); este paquete no la conoce, y por eso
+// aquí es una constante del test y no del código.
+const etiquetaDesconocido = "desconocido"
+
+// catalogoDePrueba es el catálogo CERRADO que el caller le ofrece al modelo.
+//
+// El primero es el intent que está publicado EN CAMPO, con sus params vacíos
+// (D-044.20); el segundo existe para ejercitar la rama de los parámetros
+// declarados, que hoy ningún tenant usa pero el contrato admite.
+func catalogoDePrueba() []llm.IntentSpec {
+	return []llm.IntentSpec{
+		{
+			Name:        "intake_request",
+			Description: "el cliente pide un presupuesto o quiere encargar algo",
+			Examples: []llm.IntentExample{
+				{Message: "quiero encargar una torta"},
+			},
+		},
+		{
+			Name:        "consulta_estado",
+			Description: "el cliente pregunta por un pedido que ya hizo",
+			Params:      []string{"numero_pedido"},
+			Examples: []llm.IntentExample{
+				{Message: "cómo va el pedido 42", Params: map[string]string{"numero_pedido": "42"}},
+			},
+		},
+	}
+}
+
+// entradaDeClasificacion es la entrada completa de P1 del caso de prueba: la misma
+// que se le pasa al Build y al Parse, que es justo lo que el puerto exige.
+func entradaDeClasificacion() llm.ClassifyRequestInput {
+	return llm.ClassifyRequestInput{
+		Text:         textoAmbar,
+		Catalog:      catalogoDePrueba(),
+		UnknownLabel: etiquetaDesconocido,
+		Vocabulary:   []string{"tequeños", "torta húmeda"},
+	}
+}
+
 // todosLosPrompts devuelve los cinco prompts del puerto, ya construidos, para
 // las afirmaciones que valen para todos.
 func todosLosPrompts(t *testing.T) map[string]string {
 	t.Helper()
 	ref := time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC)
 	return map[string]string{
+		"ClassifyRequest": llm.BuildClassifyRequestPrompt(entradaDeClasificacion()),
 		"ExtractMainIdeas": llm.BuildExtractMainIdeasPrompt(llm.ExtractMainIdeasInput{
 			SourceText: textoAmbar,
 		}),
@@ -66,6 +108,55 @@ func TestPrompts_LlevanLaVersionDelArtefacto(t *testing.T) {
 			assert.Contains(t, prompt, `"version": 1`)
 		})
 	}
+}
+
+func TestBuildClassifyRequestPrompt_CatalogoVocabularioYEscape(t *testing.T) {
+	prompt := llm.BuildClassifyRequestPrompt(entradaDeClasificacion())
+
+	// El catálogo entero, con la descripción de cada intención: sin ella el
+	// modelo elige por el nombre, que es una etiqueta y no una definición.
+	assert.Contains(t, prompt, "- intake_request: el cliente pide un presupuesto")
+	assert.Contains(t, prompt, "- consulta_estado: el cliente pregunta por un pedido")
+	// Los params declarados se nombran SOLO en la intención que los declara.
+	assert.Contains(t, prompt, "(extrae estos parámetros: numero_pedido)")
+	assert.NotContains(t, prompt, "intake_request: el cliente pide un presupuesto o quiere encargar algo (extrae")
+
+	assert.Contains(t, prompt, "Vocabulario del negocio (pistas de dominio): tequeños, torta húmeda")
+	assert.Contains(t, prompt, "el nombre que devuelvas tiene que estar en la lista")
+	// El rango se pide explícito: es lo único que hace comparable la confianza
+	// contra el umbral del tenant.
+	assert.Contains(t, prompt, "confidence es un número entre 0 y 1")
+	assert.Contains(t, prompt, `responde "desconocido"`)
+	assert.Contains(t, prompt, textoAmbar)
+}
+
+func TestBuildClassifyRequestPrompt_FewShotConLaFormaDeLaRespuesta(t *testing.T) {
+	// El few-shot es lo que sostiene el mapeo en un modelo de 1–2B —medido en
+	// wapp-edge-intent—, y la vía local ejecuta uno de ese tamaño. Los ejemplos
+	// van con la MISMA forma que se le pide al modelo, no con una parecida.
+	// Mutación que lo pone rojo: en fewShotDeIntents, quitar la Version del shot.
+	prompt := llm.BuildClassifyRequestPrompt(entradaDeClasificacion())
+
+	assert.Contains(t, prompt, `"cómo va el pedido 42" -> `)
+	assert.Contains(t, prompt, `{"version":1,"intent":"consulta_estado","confidence":0.9,`+
+		`"params":{"numero_pedido":"42"},"evidence":"cómo va el pedido 42"}`)
+	// El ejemplo SIN params imprime `"params":{}`, no omite la clave: enseñar el
+	// caso «el cliente no dijo ninguno» es la mitad del trabajo del few-shot.
+	assert.Contains(t, prompt, `"intent":"intake_request","confidence":0.9,"params":{},`)
+}
+
+func TestBuildClassifyRequestPrompt_LoOpcionalDesaparece(t *testing.T) {
+	// Un catálogo pelado —sin ejemplos, sin vocabulario y sin etiqueta de escape—
+	// da un prompt más flojo, pero no da un prompt roto con secciones vacías
+	// colgando ni una regla que ofrezca una etiqueta que el caller no declaró.
+	prompt := llm.BuildClassifyRequestPrompt(llm.ClassifyRequestInput{
+		Text:    textoAmbar,
+		Catalog: []llm.IntentSpec{{Name: "intake_request", Description: "pide algo"}},
+	})
+	assert.NotContains(t, prompt, "Ejemplos (mensaje del cliente")
+	assert.NotContains(t, prompt, "Vocabulario del negocio")
+	assert.NotContains(t, prompt, "no encaja en ninguna intención")
+	assert.Contains(t, prompt, "- intake_request: pide algo")
 }
 
 func TestBuildExtractItemSpecsPrompt_UnSoloItemConContexto(t *testing.T) {
