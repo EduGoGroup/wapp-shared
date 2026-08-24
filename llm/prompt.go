@@ -188,9 +188,13 @@ Esquema de la respuesta:
             "customizations": ["..."], "notes": "...", "evidence": "..."}]}
 `, ArtifactVersion)
 
+	// El SourceText va ANTES que la Idea, y no al revés: P3 se llama UNA vez por
+	// ítem con el MISMO hilo, así que el hilo es prefijo estable entre las N
+	// llamadas y la Idea es lo único que cambia. Al revés, cada ítem re-prefilla
+	// el hilo entero. Ver I6 (ADR-0046).
 	return promptHeader + instruccion + jsonOnlyRules + esquema +
-		"\nÍtem que debes especificar:\n" + in.Idea +
-		"\n\nTexto completo del cliente (contexto y fuente de la evidencia):\n" + in.SourceText
+		"\nTexto completo del cliente (contexto y fuente de la evidencia):\n" + in.SourceText +
+		"\n\nÍtem que debes especificar:\n" + in.Idea
 }
 
 // BuildNormalizeQuantitiesPrompt arma el prompt de la etapa P4.
@@ -198,11 +202,18 @@ Esquema de la respuesta:
 // La fecha de referencia viaja en el prompt porque las expresiones relativas se
 // resuelven contra la fecha DEL MENSAJE y no contra hoy (D-044.9): un trabajo
 // reanudado dos días después tiene que dar la misma fecha.
+//
+// Y viaja AL FINAL, pegada al material que se normaliza, en vez de interpolada
+// dentro de las reglas y del esquema: ahí partía el prompt por la mitad —la
+// fecha cambia cada día, así que los ~1.400 B de literal que quedaban detrás se
+// re-prefillaban en cada llamada— y dejaba el prefijo cacheable en 558 de
+// 1967 B. Ver I6 (ADR-0046). En el esquema queda el literal
+// `message_ts=AAAA-MM-DD`, que es un FORMATO y no un valor.
 func BuildNormalizeQuantitiesPrompt(in NormalizeQuantitiesInput) string {
 	ref := in.MessageTS.UTC()
 	fecha := ref.Format(time.DateOnly)
 
-	instruccion := fmt.Sprintf(`
+	instruccion := `
 
 Normaliza las cantidades de los ítems que se te dan.
 
@@ -212,31 +223,37 @@ Reglas:
   es qty 30.
 - Los rangos se conservan como rango: {"min": 10, "max": 12, "unit": "porciones"}.
   No los colapses a un número.
-- La fecha de referencia es el %s %s (la fecha del mensaje, no la de hoy).
-  Resuelve contra ella las expresiones relativas y devuelve delivery_date en
+- La fecha de referencia te la damos AL FINAL de este prompt, después del texto:
+  es la fecha del mensaje, no la de hoy. Resuelve contra ella las expresiones
+  relativas («el miércoles de la semana que viene») y devuelve delivery_date en
   formato AAAA-MM-DD.
 
-`, weekdaysES[ref.Weekday()], fecha)
+`
 
 	esquema := fmt.Sprintf(`
 
 Esquema de la respuesta:
 {"version": %d,
  "delivery_date": "AAAA-MM-DD",
- "delivery_date_basis": "message_ts=%s",
+ "delivery_date_basis": "message_ts=AAAA-MM-DD",
  "items": [{"product": "...", "qty": 1,
             "range": {"min": 0, "max": 0, "unit": "..."},
             "unit_kind": "package", "package_size": 0,
             "addon_candidates": ["..."], "customizations": ["..."],
             "notes": "...", "evidence": "..."}]}
 
+AAAA-MM-DD es el FORMATO, no un valor: en delivery_date_basis copia la fecha de
+referencia que aparece al final del prompt, con esa misma forma.
 Omite range, unit_kind y package_size cuando no apliquen. Omite delivery_date si
 el cliente no dijo cuándo.
-`, ArtifactVersion, fecha)
+`, ArtifactVersion)
 
 	return promptHeader + instruccion + jsonOnlyRules + esquema +
 		"\nÍtems a normalizar:\n" + marshalForPrompt(in.Items) +
-		"\n\nTexto completo del cliente (fuente de la evidencia):\n" + in.SourceText
+		"\n\nTexto completo del cliente (fuente de la evidencia):\n" + in.SourceText +
+		"\n\nFecha de referencia (la fecha del mensaje, no la de hoy): " +
+		weekdaysES[ref.Weekday()] + " " + fecha +
+		"\ndelivery_date_basis vale exactamente \"message_ts=" + fecha + "\".\n"
 }
 
 // BuildGenerateQuoteTextPrompt arma el prompt del generador de cotización.
