@@ -117,9 +117,12 @@ func TestBuildClassifyRequestPrompt_CatalogoVocabularioYEscape(t *testing.T) {
 	// modelo elige por el nombre, que es una etiqueta y no una definición.
 	assert.Contains(t, prompt, "- intake_request: el cliente pide un presupuesto")
 	assert.Contains(t, prompt, "- consulta_estado: el cliente pregunta por un pedido")
-	// Los params declarados se nombran SOLO en la intención que los declara.
-	assert.Contains(t, prompt, "(extrae estos parámetros: numero_pedido)")
-	assert.NotContains(t, prompt, "intake_request: el cliente pide un presupuesto o quiere encargar algo (extrae")
+	// 🔴 LOS PARAMS DECLARADOS YA NO SE ANUNCIAN (T1.8-3, D3), y esta aserción se INVIRTIÓ: antes exigía
+	// "(extrae estos parámetros: numero_pedido)". El catálogo de este caso SÍ declara `numero_pedido`, así
+	// que si el constructor volviera a anunciarlos esto saldría rojo — que es justo lo que hace falta para
+	// que el criterio (a) sea falsable y no una tautología sobre un catálogo sin params.
+	assert.NotContains(t, prompt, "extrae estos parámetros")
+	assert.NotContains(t, prompt, "numero_pedido")
 
 	assert.Contains(t, prompt, "Vocabulario del negocio (pistas de dominio): tequeños, torta húmeda")
 	assert.Contains(t, prompt, "el nombre que devuelvas tiene que estar en la lista")
@@ -139,10 +142,12 @@ func TestBuildClassifyRequestPrompt_FewShotConLaFormaDeLaRespuesta(t *testing.T)
 
 	assert.Contains(t, prompt, `"cómo va el pedido 42" -> `)
 	assert.Contains(t, prompt, `{"version":1,"intent":"consulta_estado","confidence":0.9,`+
-		`"params":{"numero_pedido":"42"},"evidence":"cómo va el pedido 42"}`)
-	// El ejemplo SIN params imprime `"params":{}`, no omite la clave: enseñar el
-	// caso «el cliente no dijo ninguno» es la mitad del trabajo del few-shot.
-	assert.Contains(t, prompt, `"intent":"intake_request","confidence":0.9,"params":{},`)
+		`"evidence":"cómo va el pedido 42"}`)
+	// 🔴 EL EJEMPLO YA NO IMPRIME `"params":{}` (T1.8-3, D3). El ejemplo del catálogo QUE SÍ TIENE params
+	// declarados (`consulta_estado` → `numero_pedido:42`) es el que hace falsable esta aserción: si el
+	// few-shot volviera a serializarlos, aparecerían aquí.
+	assert.NotContains(t, prompt, `"params"`)
+	assert.Contains(t, prompt, `"intent":"intake_request","confidence":0.9,"evidence":`)
 }
 
 func TestBuildClassifyRequestPrompt_LoOpcionalDesaparece(t *testing.T) {
