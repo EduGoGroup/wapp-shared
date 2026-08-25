@@ -59,9 +59,9 @@ literal:
 `)
 	for _, it := range in.Catalog {
 		fmt.Fprintf(&b, "- %s: %s", it.Name, it.Description)
-		if len(it.Params) > 0 {
-			fmt.Fprintf(&b, " (extrae estos parámetros: %s)", strings.Join(it.Params, ", "))
-		}
+		// 🔴 `it.Params` YA NO SE ANUNCIA (T1.8-3, D3): P1 sólo DETECTA. El campo sigue en IntentSpec
+		// porque lo usan P2-P4, que son quienes descomponen en ítems — pedírselo también a P1 es lo que
+		// le hacía PERDER ÍTEMS (D-044.20), y desde la Ola 1.6 nadie consumía lo que extraía.
 		b.WriteByte('\n')
 	}
 
@@ -75,9 +75,6 @@ Reglas de la clasificación:
 - No inventes intenciones: el nombre que devuelvas tiene que estar en la lista.
 - confidence es un número entre 0 y 1 y mide lo seguro que estás. No uses
   porcentajes ni una escala del 1 al 100.
-- En params pon SOLO lo que el cliente dijo explícitamente, con los nombres de
-  parámetro que declara la intención elegida y ningún otro. Si no dijo ninguno,
-  deja params vacío: no inventes valores.
 `)
 	if in.UnknownLabel != "" {
 		fmt.Fprintf(&b, "- Si el mensaje es ambiguo o no encaja en ninguna intención, responde %q\n"+
@@ -88,8 +85,7 @@ Reglas de la clasificación:
 	esquema := fmt.Sprintf(`
 
 Esquema de la respuesta:
-{"version": %d, "intent": "...", "confidence": 0.0,
- "params": {"nombre_del_parametro": "..."}, "evidence": "..."}
+{"version": %d, "intent": "...", "confidence": 0.0, "evidence": "..."}
 `, ArtifactVersion)
 
 	return promptHeader + b.String() + jsonOnlyRules + esquema +
@@ -108,20 +104,16 @@ func fewShotDeIntents(catalogo []IntentSpec) string {
 	var b strings.Builder
 	for _, it := range catalogo {
 		for _, ej := range it.Examples {
-			// Las claves se imprimen SIEMPRE, sin omitir las vacías: el ejemplo
-			// con `"params": {}` es justo el que enseña qué hacer cuando el
-			// cliente no dijo ningún parámetro.
-			params := ej.Params
-			if params == nil {
-				params = map[string]string{}
-			}
+			// 🔴 EL EJEMPLO YA NO ENSEÑA `params` (T1.8-3, D3). Antes se imprimían SIEMPRE, vacíos
+			// incluidos, porque el ejemplo con `"params": {}` era el que enseñaba qué hacer cuando el
+			// cliente no decía ninguno. Retirado el campo, ese ejemplo ya no enseña nada: lo que se le
+			// pide al modelo es exactamente lo que el esquema declara, ni un campo más.
 			shot := struct {
-				Version    int               `json:"version"`
-				Intent     string            `json:"intent"`
-				Confidence float64           `json:"confidence"`
-				Params     map[string]string `json:"params"`
-				Evidence   string            `json:"evidence"`
-			}{ArtifactVersion, it.Name, confianzaDelEjemplo, params, ej.Message}
+				Version    int     `json:"version"`
+				Intent     string  `json:"intent"`
+				Confidence float64 `json:"confidence"`
+				Evidence   string  `json:"evidence"`
+			}{ArtifactVersion, it.Name, confianzaDelEjemplo, ej.Message}
 			fmt.Fprintf(&b, "%q -> %s\n", ej.Message, marshalForPrompt(shot))
 		}
 	}
