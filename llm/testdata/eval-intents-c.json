@@ -1,0 +1,40 @@
+{
+  "_procedencia": "CALIDAD C — las 24 frases las REDACTÓ CLAUDE el 2026-08-25, no son mensajes de clientes reales.",
+  "_que_permite_afirmar": "Sirve como DETECTOR DE REGRESIÓN sobre un lote fijo ('¿cambió el acierto al retirar params?'). NO sirve como medida de acierto absoluto: quien escribió las frases y quien escribió el prompt son el mismo, así que un acierto alto aquí no predice el acierto con clientes de verdad.",
+  "_por_que_no_hay_calidad_A": "El sistema NO CONSERVA en ningún sitio legible lo que escribe un cliente: el Edge sólo publica `runas` (el número de caracteres) y el Plan 046 cifró `body_enc`, que exige la DEK del cliente (ADR-0007). El barrido de T1.7-7 agotó SEIS fuentes y salió con n=0. Es zero-knowledge funcionando, no un olvido. Se sustituye el día que exista una captura con consentimiento.",
+  "_no_circular": "NINGUNA de estas frases es uno de los 24 ejemplos del catálogo de UAT — ésos viven DENTRO del propio prompt P1 y medir sobre ellos sería medirse a sí mismo (lo prohíbe T1.8-3 por escrito). Verificado con un test.",
+  "_catalogo": "db60b90651d5 (tenant 05e91d16-eb3b-4ef8-86a3-19bf5c803772, UAT)",
+  "casos": [
+    {"mensaje": "buenas tardes", "intent": "saludar"},
+    {"mensaje": "holaa qué tal todo", "intent": "saludar"},
+    {"mensaje": "hey, buenas", "intent": "saludar"},
+
+    {"mensaje": "tienen lista de precios?", "intent": "listar_productos"},
+    {"mensaje": "qué venden ustedes", "intent": "listar_productos"},
+    {"mensaje": "pásame el catálogo porfa", "intent": "listar_productos"},
+
+    {"mensaje": "cuánto está la bebida de dos litros", "intent": "precio_producto"},
+    {"mensaje": "en cuánto me dejas la empanada de queso", "intent": "precio_producto"},
+    {"mensaje": "qué valor tiene la pizza familiar", "intent": "precio_producto"},
+
+    {"mensaje": "mándame 4 empanadas de queso y una bebida", "intent": "crear_pedido"},
+    {"mensaje": "necesito encargar 2 pizzas familiares para hoy", "intent": "crear_pedido"},
+    {"mensaje": "ya, dame 6 completos", "intent": "crear_pedido"},
+
+    {"mensaje": "oye y mi pedido 8891?", "intent": "estado_pedido"},
+    {"mensaje": "hace rato pedí y no llega nada", "intent": "estado_pedido"},
+    {"mensaje": "me confirmas si ya despacharon lo mío", "intent": "estado_pedido"},
+
+    {"mensaje": "hasta qué hora están abiertos", "intent": "horario_atencion"},
+    {"mensaje": "abren mañana temprano?", "intent": "horario_atencion"},
+    {"mensaje": "siguen atendiendo o ya cerraron", "intent": "horario_atencion"},
+
+    {"mensaje": "no me sirve el bot, quiero una persona", "intent": "hablar_humano"},
+    {"mensaje": "hay alguien ahí de verdad?", "intent": "hablar_humano"},
+    {"mensaje": "prefiero que me atienda un vendedor", "intent": "hablar_humano"},
+
+    {"mensaje": "necesito que me coticen el almuerzo de un curso de 40 niños para el viernes 12, con bebida incluida", "intent": "intake_request"},
+    {"mensaje": "buenas, me arman un presupuesto para un matrimonio? 120 personas, cóctel y algo dulce", "intent": "intake_request"},
+    {"mensaje": "quiero pedir para la once de la empresa, somos como 25, qué me recomiendan y cuánto sale todo", "intent": "intake_request"}
+  ]
+}
