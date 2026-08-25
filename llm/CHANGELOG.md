@@ -5,6 +5,38 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-25
+
+### Changed
+
+- 🔴 **BREAKING · P1 solo DETECTA: se retira `params` del prompt de clasificación**
+  (Plan 044, Ola 1.8, T1.8-3; decisión **D3**, **Enmienda 1 del ADR-0045**).
+  `BuildClassifyRequestPrompt` deja de pedir `params`: desaparecen de la línea del
+  catálogo, de la regla que los explicaba, del esquema de salida y del few-shot. El
+  esquema que P1 pide pasa a ser
+  `{"version": N, "intent": "...", "confidence": 0.0, "evidence": "..."}`.
+  - **Por qué**: la descomposición en ítems es trabajo de **P2–P4**, y pedírsela también a
+    P1 le hacía **perder ítems** (D-044.20). Y desde la **Ola 1.6** (pull, ADR-0045)
+    **nadie consumía** lo que P1 extraía: `sig.Intent` sale siempre `nil`, el pool los
+    descarta y en UAT hay **cero** reglas `kind='llm'`. Era un campo que costaba tokens en
+    cada mensaje y no alimentaba a nadie.
+  - **Medido** contra el VPS, catálogo real de UAT y parámetros de producción: el acierto
+    de intent **no baja** (**22/24** antes y después), el `prompt_eval_count` cae de
+    **2.221 a 1.977 tokens (−11,0 %)**, el prompt de **7.749 a 6.849 B (−11,6 %)**, y las
+    respuestas que traían `params` pasan de **9 de 24 a 0 de 24** — la prueba de que la
+    retirada surtió efecto **en el modelo** y no solo en el texto del prompt.
+  - ⚠️ **El lote del eval es de calidad C** (24 frases redactadas por Claude, no mensajes
+    de clientes): sirve como **detector de regresión**, **no** como medida de acierto
+    absoluto. Va como fixture reutilizable en `llm/testdata/eval-intents-c.json`, con sus
+    condiciones de uso **dentro del propio fichero**.
+
+### Unchanged (a propósito)
+
+- **`ParseClassification` NO cambia**: sigue aceptando una respuesta **con** `params` —un
+  Edge sin actualizar los seguirá mandando— y otra **sin**, y produce el mismo
+  `ClassifiedIntent`. Eso es lo que permite desplegar **sin coordinar versiones** entre
+  Cloud y Edge, y por eso el *breaking* es del **contrato del prompt**, no de la API de Go.
+
 ## [0.3.0] - 2026-08-24
 
 ### Changed
