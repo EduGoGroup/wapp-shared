@@ -355,9 +355,12 @@ func TestParse_CampoObligatorioVacioEsErrorDeCalidad(t *testing.T) {
 	})
 }
 
-// TestParseQuantities_ReglasDeCantidadDelDesign cubre la parte del esquema de P4
-// que NO es texto y por tanto no la caza el PlaceholderEsquema: la plantilla de
-// fecha, el paquete de cero y el rango en cero que imprime prompt.go.
+// TestParseQuantities_ReglasDeCantidadDelDesign cubre la parte del artefacto de
+// P4 que NO es texto y por tanto no la caza el PlaceholderEsquema: la plantilla
+// de fecha —que el prompt SÍ imprime, porque «AAAA-MM-DD» es reconocible— y el
+// paquete y el rango en cero, que el prompt YA NO imprime: los imprimía, y por
+// eso la etapa fue 0 de 14 en campo. Los casos se quedan porque la regla
+// semántica sigue viva: lo que dejó de existir es la fuente del eco.
 //
 // Las reglas las fija design.md §7.3 del Plan 044: la cantidad omitida vale 1,
 // «un paquete de 30» es un paquete de 30 unidades, y los rangos no se colapsan.
