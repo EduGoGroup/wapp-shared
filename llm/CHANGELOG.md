@@ -5,6 +5,8 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-26
+
 ### Fixed
 
 - 🔴 **La plantilla de P4 imprimía lo que su propio validador rechaza** (Plan 044).
