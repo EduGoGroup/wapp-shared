@@ -199,3 +199,48 @@ func TestPromptDeP4_DiceQueHacerConElPaqueteSinTamano(t *testing.T) {
 		`{"version": 1, "items": [{"product": "tequeños", "qty": 1, "unit_kind": "package",
 		                           "evidence": "un paquete de tequeños congelados"}]}`)))
 }
+
+// TestPromptDeP4_DiceQueValeQtyConUnRango vigila el TERCER hueco de la misma
+// familia: la instrucción enunciaba «si el cliente no dijo cuántos, qty vale 1» y
+// «los rangos se conservan como rango», pero NO decía qué vale qty cuando la
+// cantidad ES el rango. El cliente sí dijo cuántos —«entre 10 y 12 kilos»—, así
+// que la primera regla no aplica, y el hueco quedaba a interpretación del modelo.
+//
+// Lo que pasó en campo el 2026-08-26, y es la razón de que este test exista: dos
+// modelos INDEPENDIENTES (gemma4:e2b y gemma4:e4b) rellenaron ese hueco de la
+// misma forma, `"qty": 0`, con el sentido de «no procede» — y validarQuantities
+// lo rechaza en `it.Qty < 1`. Cuando dos modelos distintos coinciden en la
+// respuesta equivocada, el que está mal es el prompt: no había nada que
+// desobedecer. Los dos habían descompuesto BIEN los tres productos del mensaje;
+// se perdió el artefacto entero por este campo, porque el parseo es todo-o-nada.
+//
+// Mutación que lo pone rojo (ejecutada): quitar de la instrucción de
+// BuildNormalizeQuantitiesPrompt la frase que fija qty a 1 ante un rango.
+func TestPromptDeP4_DiceQueValeQtyConUnRango(t *testing.T) {
+	prompt := llm.BuildNormalizeQuantitiesPrompt(llm.NormalizeQuantitiesInput{
+		SourceText: textoAmbar,
+		Items:      []llm.ItemSpec{{Product: "papas fritas", Variant: "10 o 12 kilos"}},
+		MessageTS:  time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC),
+	})
+
+	require.Contains(t, prompt, "el rango lleva el cuánto y qty vale 1",
+		"sin esto, «entre 10 y 12 kilos» deja qty sin definir: el cliente SÍ dijo cuántos, "+
+			"así que la regla de la cantidad omitida no cubre el caso")
+	require.Contains(t, prompt, "qty es un entero de 1 en adelante y NUNCA vale 0",
+		"el 0 es la respuesta que dieron los dos modelos en campo; hay que cerrarla por su nombre")
+
+	// Lo que la regla manda hacer, ACEPTADO.
+	require.NoError(t, errDeQuantities(json.RawMessage(
+		`{"version": 1, "items": [{"product": "papas fritas", "qty": 1,
+		                           "range": {"min": 10, "max": 12, "unit": "kilos"},
+		                           "evidence": "entre 10 y 12 kilos de papas fritas"}]}`)),
+		"qty 1 junto al rango es la única salida que el contrato ofrece; si esto se cayera, "+
+			"la regla estaría mandando hacer algo inválido")
+
+	// Lo que la regla prohíbe, RECHAZADO: es el artefacto EXACTO que mataron
+	// gemma4:e2b y gemma4:e4b el 2026-08-26.
+	requiereErrorDeCalidad(t, errDeQuantities(json.RawMessage(
+		`{"version": 1, "items": [{"product": "papas fritas", "qty": 0,
+		                           "range": {"min": 10, "max": 12, "unit": "kilos"},
+		                           "evidence": "entre 10 y 12 kilos de papas fritas"}]}`)))
+}

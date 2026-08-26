@@ -5,6 +5,35 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-26
+
+### Fixed
+
+- 🔴 **P4 no decía qué vale `qty` cuando la cantidad ES un rango** (Plan 044). Las reglas
+  enunciaban «si el cliente no dijo cuántos, `qty` vale 1» y «los rangos se conservan como
+  rango», pero ante «entre 10 y 12 kilos» el cliente **sí** dijo cuántos: la primera regla
+  no aplicaba y el hueco quedaba a interpretación del modelo.
+  - **Descubierto en campo el 2026-08-26 con dos modelos INDEPENDIENTES**: `gemma4:e2b` y
+    `gemma4:e4b`, sobre el mismo mensaje, rellenaron el hueco de la misma forma —`"qty": 0`,
+    con el sentido de «no procede»— y `validarQuantities` lo rechaza en `it.Qty < 1`.
+    **Cuando dos modelos distintos coinciden en la respuesta equivocada, el que está mal es
+    el prompt**: no había nada que desobedecer.
+  - Los dos habían descompuesto **bien** los tres productos del mensaje (`qwen3:1.7b`, con el
+    mismo texto, los fundió en uno solo y pasó el validador **por casualidad**, con un `qty`
+    incoherente pero distinto de cero). Se perdió el artefacto P4 **entero** por este único
+    campo, porque el parseo es todo-o-nada (DEUDA-044.16): los otros dos ítems no se pueden
+    ni inspeccionar.
+  - La regla del rango cierra ahora con «*el rango lleva el cuánto y `qty` vale 1*», y se
+    añade «*`qty` es un entero de 1 en adelante y NUNCA vale 0*» para cerrar por su nombre
+    la respuesta que dieron los dos modelos.
+
+### Added
+
+- `TestPromptDeP4_DiceQueValeQtyConUnRango`, junto a su gemelo del `package_size` y en el
+  fichero que ya vigila esta familia: afirma que la regla está **enunciada**, que lo que
+  manda hacer el validador lo **acepta**, y que el artefacto exacto que mataron los dos
+  gemma4 lo **rechaza**. Mutación ejecutada (retirar la frase del rango lo pone rojo).
+
 ## [0.4.1] - 2026-08-26
 
 ### Fixed
