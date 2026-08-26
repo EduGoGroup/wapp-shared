@@ -398,8 +398,13 @@ func validarItemSpec(i int, it *ItemSpec) error {
 //
 // Además de los textos, comprueba las reglas de cantidad que fija design.md §7.3:
 // la cantidad omitida vale 1 (nunca 0), y «un paquete de 30» es un paquete con
-// package_size 30. Un package_size en cero con unit_kind «package» es el esquema
-// repetido, no un paquete.
+// package_size 30. Un package_size en cero con unit_kind «package» no es un
+// paquete: un paquete trae al menos una unidad.
+//
+// ⚠️ Este docstring decía que ese cero era «el esquema repetido». Lo era: la
+// plantilla de P4 lo imprimía, así que lo que se rechazaba era el ejemplo que el
+// propio prompt daba. Corregido en prompt.go; el rechazo se queda porque la
+// regla semántica sigue en pie, pero ya no hay ningún cero que ecoar.
 func validarNormalizedItem(i int, it *NormalizedItem) error {
 	if err := validarObligatorio(campoDe("items", i, "product"), it.Product); err != nil {
 		return err
