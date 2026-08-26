@@ -32,6 +32,7 @@ go get github.com/EduGoGroup/wapp-shared/config
 | `intents` | Contrato canónico de configuración de intenciones por tenant del clasificador LLM y su validación estructural (tag `intents/v0.1.0`); lo consumen `wapp-edge-intent` y el Edge. | [README](intents/README.md) | [CHANGELOG](intents/CHANGELOG.md) |
 | `ui` | Design tokens y componentes CSS del ecosistema servidos desde Go con `embed.FS`; los consumen la Consola Cloud BFF y la Edge Agent UI. | [README](ui/README.md) | [CHANGELOG](ui/CHANGELOG.md) |
 | `llm` | Puerto unico `LLMProvider` (un metodo por tarea del pipeline), prompts compartidos en espanol, parsers de artefactos versionados y la implementacion `llm/api` contra API externa (anthropic completo, gemini stub). | [README](llm/README.md) | [CHANGELOG](llm/CHANGELOG.md) |
+| `textmatch` | Motor determinista de comparacion de textos (normalizacion que preserva la ñ, distancia OSA, cascada Exact/Fuzzy y `SetMatcher`); la zona gris (LLM) se **inyecta**, el modulo no importa `llm`. | [README](textmatch/README.md) | [CHANGELOG](textmatch/CHANGELOG.md) |
 
 ## Ingenieria de releases
 
