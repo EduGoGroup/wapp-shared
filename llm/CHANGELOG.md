@@ -5,6 +5,46 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-08-26
+
+### Added
+
+- **Los prompts de P2–P5 se pueden inyectar desde fuera, sin tocar este módulo.** Es la
+  costura que permite ajustar el texto de un prompt **sin una release**: hasta hoy, cambiar
+  una coma costaba release de `llm` + subida de dependencia + release del cloud + despliegue,
+  y eso fue exactamente lo que hizo caros los bugs del `v0.4.1` y del `v0.4.2`.
+  - `Plantilla{Instruccion, Esquema}`: las DOS piezas ajustables del prompt. Las otras tres
+    —cabecera común, reglas de salida y los datos— no se tocan desde fuera.
+  - `Build{ExtractMainIdeas,ExtractItemSpecs,NormalizeQuantities,GenerateQuoteText}PromptCon`:
+    misma composición, con la plantilla que se les dé. Los `Build*Prompt` de siempre siguen
+    existiendo y delegan en ellos con la compilada, así que **ningún consumidor cambia**.
+  - `PlantillaPorDefecto(Etapa)`, `Etapa` (`p2`…`p5`) y `EtapasAjustables`.
+  - 🔴 **LA COMPOSICIÓN SE QUEDA AQUÍ, y no es un detalle**: el ORDEN de las piezas es lo que
+    mantiene cacheable el prefijo que el proveedor reutiliza (I6, ADR-0046). Dárselo a
+    reordenar a quien inyecta el texto sería regalar una forma silenciosa de multiplicar el
+    prefill, que es el coste dominante de estas etapas.
+  - 🔴 **ESTE MÓDULO NO LEE FICHEROS**, a propósito: una librería compartida que abre rutas
+    arrastra el sistema de ficheros a todos sus consumidores. Aquí solo entra texto ya leído.
+    Quien lo lee del disco es el cloud (`internal/prompts`).
+  - **P1 NO está, y no es un olvido**: su prompt lo gobierna el catálogo de intenciones del
+    tenant, que YA se edita por API (`PUT /api/v1/intents`). Meterlo aquí le daría dos fuentes
+    de verdad al mismo texto.
+
+- **`ValidarPlantilla(Etapa, Plantilla)`: una plantilla que su propio validador rechaza no se
+  puede servir.** Comprueba las dos mitades del invariante que costó dos releases aprender:
+  que el esquema, con sus huecos reconocibles rellenos, lo **acepte** el `Parse*` de la etapa
+  —el modelo COPIA el ejemplo—, y que el esquema **crudo** lo siga **rechazando** —esa es la
+  red que caza al modelo que ecoa el prompt en vez de responder—. Los números no se rellenan,
+  que es el punto: un `...` se detecta si el modelo lo copia, un `0` es indistinguible de un
+  valor real. Con esto, el bug del `v0.4.1` deja de ser catorce jobs muertos y pasa a ser un
+  error de arranque. Centinela `ErrPlantillaInvalida`.
+
+- Tests: las cuatro plantillas compiladas pasan `ValidarPlantilla`; el bug del `v0.4.1`
+  reproducido (`"package_size": 0`) queda **cazado**; un esquema sin huecos reconocibles se
+  rechaza por perder la red del eco; y la costura fija que el texto inyectado sale en el
+  prompt **y que el orden de las piezas no cambia**, que es lo que una refactorización puede
+  romper sin que ningún test de contenido se entere.
+
 ## [0.4.4] - 2026-08-26
 
 ### Fixed

@@ -124,7 +124,10 @@ func fewShotDeIntents(catalogo []IntentSpec) string {
 }
 
 // BuildExtractMainIdeasPrompt arma el prompt de la etapa P2.
-func BuildExtractMainIdeasPrompt(in ExtractMainIdeasInput) string {
+// plantillaP2 devuelve la plantilla POR DEFECTO de P2: el texto que este paquete
+// lleva compilado y que se usa cuando nadie inyecta otro. Es la fuente de verdad
+// del prompt de la etapa, y la que sus tests validan.
+func plantillaP2() Plantilla {
 	instruccion := `
 
 Saca las ideas principales de lo que el cliente quiere. Una entrada por cosa
@@ -145,8 +148,27 @@ Esquema de la respuesta:
 
 Si el cliente no dice cuándo, omite delivery_hint.
 `, ArtifactVersion)
+	return Plantilla{Instruccion: instruccion, Esquema: esquema}
+}
 
-	return promptHeader + instruccion + jsonOnlyRules + esquema +
+// BuildExtractMainIdeasPrompt arma el prompt de P2 con la plantilla COMPILADA.
+//
+// El texto de esa plantilla —y el porqué de cada regla— está documentado sobre
+// plantillaP2, justo encima. Para armarlo con un texto ajustado desde fuera,
+// usa BuildExtractMainIdeasPromptCon; quien lo hace es el cloud, ver plantilla.go.
+func BuildExtractMainIdeasPrompt(in ExtractMainIdeasInput) string {
+	return BuildExtractMainIdeasPromptCon(plantillaP2(), in)
+}
+
+// BuildExtractMainIdeasPromptCon arma el prompt de P2 con la plantilla QUE SE LE DA, en vez de con la
+// compilada. Es la costura por la que el cloud inyecta un prompt cargado de
+// disco sin que este paquete sepa qué es un fichero: aquí solo entra texto ya
+// leído y validado. La COMPOSICIÓN no es negociable y por eso vive aquí y no en
+// el llamador — el orden de las piezas es lo que mantiene estable el prefijo que
+// el proveedor cachea (ver I6, ADR-0046).
+func BuildExtractMainIdeasPromptCon(p Plantilla, in ExtractMainIdeasInput) string {
+
+	return promptHeader + p.Instruccion + jsonOnlyRules + p.Esquema +
 		"\nTexto del cliente:\n" + in.SourceText
 }
 
@@ -154,7 +176,10 @@ Si el cliente no dice cuándo, omite delivery_hint.
 //
 // Se llama UNA vez por ítem, con contexto fresco: el prompt lleva el hilo entero
 // como contexto pero le pide al modelo que se ocupe de una sola idea.
-func BuildExtractItemSpecsPrompt(in ExtractItemSpecsInput) string {
+// plantillaP3 devuelve la plantilla POR DEFECTO de P3: el texto que este paquete
+// lleva compilado y que se usa cuando nadie inyecta otro. Es la fuente de verdad
+// del prompt de la etapa, y la que sus tests validan.
+func plantillaP3() Plantilla {
 	instruccion := `
 
 Especifica UN SOLO ítem: el que se te indica más abajo. Ignora los demás, aunque
@@ -179,12 +204,31 @@ Esquema de la respuesta:
  "items": [{"product": "...", "variant": "...", "addon_candidates": ["..."],
             "customizations": ["..."], "notes": "...", "evidence": "..."}]}
 `, ArtifactVersion)
+	return Plantilla{Instruccion: instruccion, Esquema: esquema}
+}
+
+// BuildExtractItemSpecsPrompt arma el prompt de P3 con la plantilla COMPILADA.
+//
+// El texto de esa plantilla —y el porqué de cada regla— está documentado sobre
+// plantillaP3, justo encima. Para armarlo con un texto ajustado desde fuera,
+// usa BuildExtractItemSpecsPromptCon; quien lo hace es el cloud, ver plantilla.go.
+func BuildExtractItemSpecsPrompt(in ExtractItemSpecsInput) string {
+	return BuildExtractItemSpecsPromptCon(plantillaP3(), in)
+}
+
+// BuildExtractItemSpecsPromptCon arma el prompt de P3 con la plantilla QUE SE LE DA, en vez de con la
+// compilada. Es la costura por la que el cloud inyecta un prompt cargado de
+// disco sin que este paquete sepa qué es un fichero: aquí solo entra texto ya
+// leído y validado. La COMPOSICIÓN no es negociable y por eso vive aquí y no en
+// el llamador — el orden de las piezas es lo que mantiene estable el prefijo que
+// el proveedor cachea (ver I6, ADR-0046).
+func BuildExtractItemSpecsPromptCon(p Plantilla, in ExtractItemSpecsInput) string {
 
 	// El SourceText va ANTES que la Idea, y no al revés: P3 se llama UNA vez por
 	// ítem con el MISMO hilo, así que el hilo es prefijo estable entre las N
 	// llamadas y la Idea es lo único que cambia. Al revés, cada ítem re-prefilla
 	// el hilo entero. Ver I6 (ADR-0046).
-	return promptHeader + instruccion + jsonOnlyRules + esquema +
+	return promptHeader + p.Instruccion + jsonOnlyRules + p.Esquema +
 		"\nTexto completo del cliente (contexto y fuente de la evidencia):\n" + in.SourceText +
 		"\n\nÍtem que debes especificar:\n" + in.Idea
 }
@@ -211,10 +255,10 @@ Esquema de la respuesta:
 // es indistinguible de un valor real: no hay forma de detectarlo, solo de
 // rechazarlo. Los números que quedan aquí son los MISMOS del ejemplo de las
 // reglas de arriba, para que la forma y las reglas enseñen lo mismo.
-func BuildNormalizeQuantitiesPrompt(in NormalizeQuantitiesInput) string {
-	ref := in.MessageTS.UTC()
-	fecha := ref.Format(time.DateOnly)
-
+// plantillaP4 devuelve la plantilla POR DEFECTO de P4: el texto que este paquete
+// lleva compilado y que se usa cuando nadie inyecta otro. Es la fuente de verdad
+// del prompt de la etapa, y la que sus tests validan.
+func plantillaP4() Plantilla {
 	instruccion := `
 
 Normaliza las cantidades de los ítems que se te dan.
@@ -235,7 +279,6 @@ Reglas:
   formato AAAA-MM-DD.
 
 `
-
 	esquema := fmt.Sprintf(`
 
 Esquema de la respuesta:
@@ -255,8 +298,29 @@ los que dijo el cliente.
 Omite range, unit_kind y package_size cuando no apliquen. Omite delivery_date si
 el cliente no dijo cuándo.
 `, ArtifactVersion)
+	return Plantilla{Instruccion: instruccion, Esquema: esquema}
+}
 
-	return promptHeader + instruccion + jsonOnlyRules + esquema +
+// BuildNormalizeQuantitiesPrompt arma el prompt de P4 con la plantilla COMPILADA.
+//
+// El texto de esa plantilla —y el porqué de cada regla— está documentado sobre
+// plantillaP4, justo encima. Para armarlo con un texto ajustado desde fuera,
+// usa BuildNormalizeQuantitiesPromptCon; quien lo hace es el cloud, ver plantilla.go.
+func BuildNormalizeQuantitiesPrompt(in NormalizeQuantitiesInput) string {
+	return BuildNormalizeQuantitiesPromptCon(plantillaP4(), in)
+}
+
+// BuildNormalizeQuantitiesPromptCon arma el prompt de P4 con la plantilla QUE SE LE DA, en vez de con la
+// compilada. Es la costura por la que el cloud inyecta un prompt cargado de
+// disco sin que este paquete sepa qué es un fichero: aquí solo entra texto ya
+// leído y validado. La COMPOSICIÓN no es negociable y por eso vive aquí y no en
+// el llamador — el orden de las piezas es lo que mantiene estable el prefijo que
+// el proveedor cachea (ver I6, ADR-0046).
+func BuildNormalizeQuantitiesPromptCon(p Plantilla, in NormalizeQuantitiesInput) string {
+	ref := in.MessageTS.UTC()
+	fecha := ref.Format(time.DateOnly)
+
+	return promptHeader + p.Instruccion + jsonOnlyRules + p.Esquema +
 		"\nÍtems a normalizar:\n" + marshalForPrompt(in.Items) +
 		"\n\nTexto completo del cliente (fuente de la evidencia):\n" + in.SourceText +
 		"\n\nFecha de referencia (la fecha del mensaje, no la de hoy): " +
@@ -268,7 +332,10 @@ el cliente no dijo cuándo.
 //
 // No usa promptHeader: aquí el modelo no analiza lo que pidió el cliente, redacta
 // lo que el negocio ya decidió responder.
-func BuildGenerateQuoteTextPrompt(in GenerateQuoteTextInput) string {
+// plantillaP5 devuelve la plantilla POR DEFECTO de P5: el texto que este paquete
+// lleva compilado y que se usa cuando nadie inyecta otro. Es la fuente de verdad
+// del prompt de la etapa, y la que sus tests validan.
+func plantillaP5() Plantilla {
 	instruccion := `Redactas el mensaje con el que un negocio pequeño le pasa una cotización a su
 cliente por WhatsApp. Escribes como escribe ese negocio, no como escribe una
 empresa grande.
@@ -285,6 +352,25 @@ Reglas duras:
 Esquema de la respuesta:
 {"version": %d, "text": "..."}
 `, ArtifactVersion)
+	return Plantilla{Instruccion: instruccion, Esquema: esquema}
+}
+
+// BuildGenerateQuoteTextPrompt arma el prompt de P5 con la plantilla COMPILADA.
+//
+// El texto de esa plantilla —y el porqué de cada regla— está documentado sobre
+// plantillaP5, justo encima. Para armarlo con un texto ajustado desde fuera,
+// usa BuildGenerateQuoteTextPromptCon; quien lo hace es el cloud, ver plantilla.go.
+func BuildGenerateQuoteTextPrompt(in GenerateQuoteTextInput) string {
+	return BuildGenerateQuoteTextPromptCon(plantillaP5(), in)
+}
+
+// BuildGenerateQuoteTextPromptCon arma el prompt de P5 con la plantilla QUE SE LE DA, en vez de con la
+// compilada. Es la costura por la que el cloud inyecta un prompt cargado de
+// disco sin que este paquete sepa qué es un fichero: aquí solo entra texto ya
+// leído y validado. La COMPOSICIÓN no es negociable y por eso vive aquí y no en
+// el llamador — el orden de las piezas es lo que mantiene estable el prefijo que
+// el proveedor cachea (ver I6, ADR-0046).
+func BuildGenerateQuoteTextPromptCon(p Plantilla, in GenerateQuoteTextInput) string {
 
 	ejemplos := ""
 	if len(in.Examples) > 0 {
@@ -296,7 +382,7 @@ Esquema de la respuesta:
 			strings.Join(bloques, "\n") + "\n"
 	}
 
-	return instruccion + jsonOnlyRules + esquema + ejemplos +
+	return p.Instruccion + jsonOnlyRules + p.Esquema + ejemplos +
 		"\nBorrador a redactar:\n" + string(in.Quote) + "\n"
 }
 
