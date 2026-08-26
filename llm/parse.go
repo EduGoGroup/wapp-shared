@@ -141,6 +141,60 @@ type NormalizedItem struct {
 	Evidence string `json:"evidence"`
 }
 
+// UnmarshalJSON aplica el DEFAULT que Qty ya tenía DOCUMENTADO y que el código
+// nunca implementó: una clave `qty` AUSENTE vale 1. Solo un 0 ESCRITO es un error.
+//
+// 🔴 POR QUÉ EXISTE ESTE MÉTODO — el fallo que lo trajo, para que nadie lo borre
+// pensando que es ceremonia. `Qty` es un `int`, así que una clave ausente lo deja
+// en el valor cero del tipo, y validarNormalizedItem no puede distinguir «el
+// modelo no escribió qty» de «el modelo escribió qty: 0». Las dos cosas llegaban
+// al mismo `it.Qty == 0` y salían por el mismo error, que encima dice «vale 0»
+// —una frase que describe el segundo caso y NO el primero, y que mandó a
+// depurar el prompt en vez del parser.
+//
+// Lo que pasó en campo el 2026-08-26: ante «entre 10 y 12 kilos de papas fritas»,
+// `gemma4:e2b` emitió el ítem con su `range` correcto y SIN clave `qty` —leyendo,
+// razonablemente, que la cantidad ya la llevaba el rango—. El resto de su salida
+// era impecable (qty 50 para las poleras; qty 3 con unit_kind package y
+// package_size 100 para las cajas). El artefacto ENTERO se perdía por esa clave
+// ausente, porque el parseo es todo-o-nada (DEUDA-044.16). Subir el volumen del
+// prompt no lo arregló: el v0.4.2 añadió la regla explícita y el modelo siguió
+// omitiendo el campo, porque omitirlo es coherente con el contrato que él lee.
+//
+// 🔴 EL DEFAULT NO ES UNA INVENCIÓN DE ESTE MÉTODO: ya estaba escrito en TRES
+// sitios —el docstring de Qty («Si el cliente no la dijo, vale 1»), la regla del
+// prompt y el propio texto del error («la cantidad omitida es 1, nunca 0»)—. Los
+// tres declaraban la misma regla y ninguno la ejecutaba. Aquí se ejecuta.
+//
+// El 0 ESCRITO se sigue rechazando, y eso es deliberado: un modelo que escribe
+// `"qty": 0` está afirmando una cantidad nula, que no es un pedido. La ausencia
+// es una omisión con default; el cero es una afirmación falsa.
+func (it *NormalizedItem) UnmarshalJSON(b []byte) error {
+	// El alias rompe la recursión: sin él, json.Unmarshal volvería a entrar aquí.
+	type alias NormalizedItem
+	aux := struct {
+		// Qty a nivel 0 SOMBREA al del alias incrustado (nivel 1), que es la regla
+		// de precedencia por profundidad de encoding/json. El puntero es lo único
+		// que distingue ausente (nil) de escrito (apunta a un valor, 0 incluido).
+		Qty *int `json:"qty"`
+		*alias
+	}{alias: (*alias)(it)}
+
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+	if aux.Qty == nil {
+		it.Qty = QtyPorDefecto
+		return nil
+	}
+	it.Qty = *aux.Qty
+	return nil
+}
+
+// QtyPorDefecto es la cantidad que vale un ítem cuyo `qty` no vino en el
+// artefacto. Es 1 porque un ítem que el cliente nombró es, como mínimo, uno.
+const QtyPorDefecto = 1
+
 // Range es un rango pedido por el cliente, con su unidad.
 type Range struct {
 	// Min es el extremo bajo del rango.
@@ -416,7 +470,15 @@ func validarNormalizedItem(i int, it *NormalizedItem) error {
 		return err
 	}
 	if it.Qty < 1 {
-		return fmt.Errorf("%w: %s vale %d; la cantidad omitida es 1, nunca 0", ErrLLMQuality, campoDe("items", i, "qty"), it.Qty)
+		// El mensaje nombra el caso que de verdad queda: desde que NormalizedItem
+		// tiene UnmarshalJSON, una clave ausente ya vale QtyPorDefecto, así que un 0
+		// aquí SOLO puede venir ESCRITO. Antes esta frase decía «la cantidad omitida
+		// es 1, nunca 0» y describía el caso que el parser NO sabía distinguir: se
+		// leía como si el modelo hubiera escrito un cero cuando lo que había hecho
+		// era omitir el campo, y mandó a depurar el prompt en vez del parser.
+		return fmt.Errorf("%w: %s vale %d ESCRITO, y un 0 afirma una cantidad nula, que no es un pedido "+
+			"(una clave qty AUSENTE no llega aquí: vale %d por defecto)",
+			ErrLLMQuality, campoDe("items", i, "qty"), it.Qty, QtyPorDefecto)
 	}
 	if err := validarPaquete(i, it); err != nil {
 		return err
