@@ -142,7 +142,9 @@ type NormalizedItem struct {
 }
 
 // UnmarshalJSON aplica el DEFAULT que Qty ya tenía DOCUMENTADO y que el código
-// nunca implementó: una clave `qty` AUSENTE vale 1. Solo un 0 ESCRITO es un error.
+// nunca implementó, y lo aplica SOLO donde es demostrable: una clave `qty` ausente
+// vale 1 CUANDO el ítem trae `range`. Sin rango se queda en 0 y el validador la
+// rechaza; un 0 ESCRITO se rechaza siempre.
 //
 // 🔴 POR QUÉ EXISTE ESTE MÉTODO — el fallo que lo trajo, para que nadie lo borre
 // pensando que es ceremonia. `Qty` es un `int`, así que una clave ausente lo deja
@@ -183,16 +185,30 @@ func (it *NormalizedItem) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &aux); err != nil {
 		return err
 	}
-	if aux.Qty == nil {
-		it.Qty = QtyPorDefecto
+	if aux.Qty != nil {
+		it.Qty = *aux.Qty
 		return nil
 	}
-	it.Qty = *aux.Qty
+	// 🔴 EL DEFAULT SOLO SE APLICA CON RANGO, y la frontera es lo importante de este
+	// método. Con `range` presente el «cuánto» está demostrablemente en OTRO campo y
+	// el 1 no es una suposición: es la lectura correcta —una línea de pedido cuya
+	// cantidad se expresa como rango—, la misma que el prompt manda escribir.
+	//
+	// SIN rango, una `qty` ausente esconde una cantidad que nadie sabe, y ahí
+	// rellenar un 1 sería MAQUILLAR una salida degenerada: el ítem se queda en 0 y
+	// validarNormalizedItem lo rechaza, que es lo que el cloud decidió a propósito
+	// (TestP4_CantidadOmitida_EsUnoYNuncaCero, «no se persiste como 0 ni se maquilla
+	// como 1»). Esa decisión NO se toca: lo único que cambia es que el caso del rango
+	// deja de caer en el mismo saco que el caso ciego.
+	if it.Range != nil {
+		it.Qty = QtyPorDefecto
+	}
 	return nil
 }
 
-// QtyPorDefecto es la cantidad que vale un ítem cuyo `qty` no vino en el
-// artefacto. Es 1 porque un ítem que el cliente nombró es, como mínimo, uno.
+// QtyPorDefecto es la cantidad que toma un ítem CON RANGO cuyo `qty` no vino en el
+// artefacto. Es 1 porque el rango ya lleva el cuánto: lo que falta contar es la
+// línea, y una línea es una. No se aplica a los ítems sin rango — ver UnmarshalJSON.
 const QtyPorDefecto = 1
 
 // Range es un rango pedido por el cliente, con su unidad.
