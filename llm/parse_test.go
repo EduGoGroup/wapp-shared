@@ -489,6 +489,19 @@ func TestParseQuantities_QtyAusenteValeUnoYEscritoCeroNo(t *testing.T) {
 		assert.Equal(t, 100, art.Items[1].PackageSize)
 	})
 
+	t.Run("ausente y SIN rango se sigue rechazando", func(t *testing.T) {
+		// La frontera del arreglo, y la razón de que sea estrecho. Sin `range` no hay
+		// ningún campo donde esté el «cuánto»: rellenar un 1 aquí MAQUILLARÍA una
+		// salida degenerada y persistiría una cantidad que nadie dijo. El cloud ya lo
+		// había decidido así a propósito (TestP4_CantidadOmitida_EsUnoYNuncaCero, «no
+		// se persiste como 0 ni se maquilla como 1») y esa decisión no se toca.
+		_, err := llm.ParseQuantities(json.RawMessage(
+			`{"version": 1, "items": [{"product": "tequeños congelados",
+			                           "evidence": "un paquete de tequeños congelados de 30"}]}`))
+		require.ErrorIs(t, err, llm.ErrLLMQuality,
+			"sin rango, una qty ausente esconde una cantidad desconocida: rellenarla sería maquillar")
+	})
+
 	t.Run("un 0 ESCRITO se sigue rechazando", func(t *testing.T) {
 		_, err := llm.ParseQuantities(json.RawMessage(
 			`{"version": 1, "items": [{"product": "papas fritas", "qty": 0,
