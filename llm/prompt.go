@@ -226,7 +226,9 @@ Reglas:
 - Si es un paquete pero el cliente no dijo cuántas unidades trae, omite unit_kind
   y package_size: no pongas 0 ni te inventes el tamaño.
 - Los rangos se conservan como rango: {"min": 10, "max": 12, "unit": "porciones"}.
-  No los colapses a un número.
+  No los colapses a un número. Cuando la cantidad ES el rango («entre 10 y 12
+  kilos»), el rango lleva el cuánto y qty vale 1.
+- qty es un entero de 1 en adelante y NUNCA vale 0. Si dudas entre 0 y 1, pon 1.
 - La fecha de referencia te la damos AL FINAL de este prompt, después del texto:
   es la fecha del mensaje, no la de hoy. Resuelve contra ella las expresiones
   relativas («el miércoles de la semana que viene») y devuelve delivery_date en
