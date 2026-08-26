@@ -5,6 +5,30 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-08-26
+
+### Fixed
+
+- 🔴 **El default de `qty` del `v0.4.3` era DEMASIADO ANCHO y atropellaba una decisión del
+  cloud.** El `v0.4.3` daba `QtyPorDefecto` a toda `qty` ausente; el cloud ya había decidido
+  a propósito lo contrario —`TestP4_CantidadOmitida_EsUnoYNuncaCero`, «*no se persiste como 0
+  **ni se maquilla como 1**»*— y ese test se puso rojo al subir la dependencia, que es
+  exactamente su función.
+  - **La decisión del cloud sigue en pie y no se toca**: sin `range`, una `qty` ausente
+    esconde una cantidad que nadie sabe, rellenar un 1 maquillaría una salida degenerada, y
+    el ítem se queda en 0 para que el validador lo rechace y el job se reintente.
+  - Lo único que cambia es que el caso del **rango** deja de caer en el mismo saco que el
+    caso ciego: con `range` presente el «cuánto» está demostrablemente en otro campo y el 1
+    no es una suposición sino la lectura correcta —una línea de pedido cuya cantidad se
+    expresa como rango—, la misma que el prompt manda escribir. Es el caso que mataba los
+    artefactos en campo.
+
+### Added
+
+- `TestParseQuantities_QtyAusenteValeUnoYEscritoCeroNo/ausente y SIN rango se sigue
+  rechazando`: clava la frontera. Mutación ejecutada (hacer el default incondicional lo pone
+  rojo).
+
 ## [0.4.3] - 2026-08-26
 
 ### Fixed
