@@ -437,3 +437,64 @@ func TestParse_ToleraCamposFuturos(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, out.Wants)
 }
+
+// artefactoDeGemma4 es la salida LITERAL que dio gemma4:e2b el 2026-08-26 ante
+// «necesito cotizar 50 poleras estampadas talla M, 3 cajas de vasos plasticos de
+// 100 unidades cada una, y entre 10 y 12 kilos de papas fritas para el 15 de
+// septiembre», reproducida fuera del pipeline contra el Ollama local para poder
+// LEERLA: dentro del pipeline el parseo todo-o-nada la descartaba entera
+// (DEUDA-044.16) y no había forma de ver qué había generado.
+//
+// Se guarda literal, sin retocar, porque su valor está justo en lo que tiene de
+// incómodo: los dos primeros ítems son IMPECABLES —qty 50 con la talla en
+// customizations; qty 3 con unit_kind package y package_size 100— y el tercero
+// trae su rango bien y NO trae la clave qty.
+const artefactoDeGemma4 = `{"version": 1, "delivery_date": "2026-08-26",
+ "delivery_date_basis": "message_ts=2026-08-26",
+ "items": [
+   {"product": "poleras estampadas", "qty": 50, "customizations": ["talla M"],
+    "evidence": "50 poleras estampadas talla M"},
+   {"product": "vasos plasticos", "qty": 3, "unit_kind": "package", "package_size": 100,
+    "evidence": "3 cajas de vasos plasticos de 100 unidades cada una"},
+   {"product": "papas fritas", "range": {"min": 10, "max": 12, "unit": "kilos"},
+    "evidence": "entre 10 y 12 kilos"}]}`
+
+// TestParseQuantities_QtyAusenteValeUnoYEscritoCeroNo separa las dos cosas que el
+// parser confundía: que `qty` NO VENGA y que venga ESCRITO como 0.
+//
+// Hasta el 2026-08-26 las dos acababan en el mismo `it.Qty == 0`, porque Qty es un
+// `int` y una clave ausente lo deja en el cero del tipo. El error resultante decía
+// «vale 0» —una frase que describe el segundo caso y no el primero—, y con eso se
+// fue a corregir la REDACCIÓN del prompt: el v0.4.2 añadió la regla explícita de
+// qué vale qty ante un rango, se desplegó, y el modelo siguió omitiendo el campo.
+// Tenía razón él: omitirlo es coherente con el contrato que lee.
+//
+// El default no lo inventa el parser. Ya estaba escrito en TRES sitios que no lo
+// ejecutaban: el docstring de Qty, la regla del prompt y el propio texto del error.
+//
+// Mutación que lo pone rojo (ejecutada): quitar el UnmarshalJSON de NormalizedItem.
+func TestParseQuantities_QtyAusenteValeUnoYEscritoCeroNo(t *testing.T) {
+	t.Run("ausente vale 1 y el artefacto entero se salva", func(t *testing.T) {
+		art, err := llm.ParseQuantities(json.RawMessage(artefactoDeGemma4))
+		require.NoError(t, err, "el artefacto de gemma4 se perdía ENTERO por una clave ausente en un ítem")
+		require.Len(t, art.Items, 3, "los tres ítems tienen que sobrevivir, no solo los dos que traían qty")
+
+		assert.Equal(t, 50, art.Items[0].Qty, "un qty ESCRITO manda: el default no lo pisa")
+		assert.Equal(t, 3, art.Items[1].Qty)
+		assert.Equal(t, llm.QtyPorDefecto, art.Items[2].Qty, "el ítem sin clave qty toma el default documentado")
+
+		// Y lo que el ítem sí traía no se pierde por el camino.
+		require.NotNil(t, art.Items[2].Range)
+		assert.Equal(t, llm.Range{Min: 10, Max: 12, Unit: "kilos"}, *art.Items[2].Range)
+		assert.Equal(t, 100, art.Items[1].PackageSize)
+	})
+
+	t.Run("un 0 ESCRITO se sigue rechazando", func(t *testing.T) {
+		_, err := llm.ParseQuantities(json.RawMessage(
+			`{"version": 1, "items": [{"product": "papas fritas", "qty": 0,
+			                           "evidence": "papas fritas"}]}`))
+		require.ErrorIs(t, err, llm.ErrLLMQuality,
+			"la ausencia es una omisión con default; el cero es una afirmación de cantidad nula, "+
+				"que no es un pedido: distinguirlas es el objeto de este cambio")
+	})
+}
