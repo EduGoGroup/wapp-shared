@@ -5,6 +5,42 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-26
+
+### Fixed
+
+- 🔴 **`qty` AUSENTE se leía como `qty` = 0, y se perdía el artefacto entero.** `Qty` es un
+  `int`, así que una clave ausente lo deja en el cero del tipo y `validarNormalizedItem` no
+  podía distinguir «el modelo no escribió `qty`» de «el modelo escribió `qty: 0`». Las dos
+  salían por el mismo error, que además decía «*vale 0*» — una frase que describe el segundo
+  caso y **no** el primero.
+  - **La frase engañosa costó una release entera**: mandó a corregir la REDACCIÓN del prompt.
+    El `v0.4.2` añadió la regla explícita de qué vale `qty` ante un rango, se desplegó en UAT,
+    y el modelo **siguió omitiendo el campo** — con razón: omitirlo es coherente con el
+    contrato que él lee.
+  - Lo que pasó en campo el 2026-08-26 con `gemma4:e2b`, leído fuera del pipeline porque
+    dentro no se podía ver: ante «entre 10 y 12 kilos de papas fritas» emitió el ítem con su
+    `range` correcto y sin clave `qty`. El resto de su salida era **impecable** (`qty` 50 con
+    la talla en `customizations`; `qty` 3 con `unit_kind` package y `package_size` 100). Los
+    tres ítems se perdían por esa clave, porque el parseo es todo-o-nada (DEUDA-044.16).
+  - **El default no lo inventa este cambio**: ya estaba escrito en TRES sitios que no lo
+    ejecutaban —el docstring de `Qty` («*Si el cliente no la dijo, vale 1*»), la regla del
+    prompt y el propio texto del error («*la cantidad omitida es 1*»)—. Ahora se ejecuta.
+- **El mensaje del error nombra el caso que de verdad queda.** Un 0 que llega al validador
+  solo puede venir ESCRITO, así que el texto lo dice y añade que la ausencia ya vale 1.
+
+### Added
+
+- `NormalizedItem.UnmarshalJSON`: distingue ausente de escrito con un `*int` sombreado sobre
+  un alias del tipo. La ausencia toma `QtyPorDefecto`; **un 0 escrito se sigue rechazando**, y
+  eso es deliberado — la ausencia es una omisión con default, el cero es una afirmación de
+  cantidad nula, que no es un pedido.
+- `QtyPorDefecto` (= 1), para que el default sea un símbolo y no un literal repartido.
+- `TestParseQuantities_QtyAusenteValeUnoYEscritoCeroNo`, sobre el artefacto **literal** de
+  `gemma4:e2b` guardado sin retocar: exige que los **tres** ítems sobrevivan, que un `qty`
+  escrito mande sobre el default y que el `range` y el `package_size` no se pierdan por el
+  camino. Mutación ejecutada (quitar el `UnmarshalJSON` lo pone rojo).
+
 ## [0.4.2] - 2026-08-26
 
 ### Fixed
