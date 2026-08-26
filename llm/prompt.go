@@ -201,6 +201,16 @@ Esquema de la respuesta:
 // re-prefillaban en cada llamada— y dejaba el prefijo cacheable en 558 de
 // 1967 B. Ver I6 (ADR-0046). En el esquema queda el literal
 // `message_ts=AAAA-MM-DD`, que es un FORMATO y no un valor.
+//
+// 🔴 EN EL ESQUEMA NO PUEDE HABER UN NÚMERO QUE ParseQuantities RECHACE. Esta
+// plantilla imprimía `"package_size": 0` y `"range": {"min": 0, "max": 0}`, que
+// son exactamente lo que rechazan validarPaquete y validarRango: el modelo no
+// desobedecía, copiaba el ejemplo que se le daba, y la etapa fue 0 de 14 en su
+// primer día en campo. Un `"..."` sí puede quedarse —es un relleno
+// RECONOCIBLE, y PlaceholderEsquema lo caza si el modelo lo ecoa—, pero un `0`
+// es indistinguible de un valor real: no hay forma de detectarlo, solo de
+// rechazarlo. Los números que quedan aquí son los MISMOS del ejemplo de las
+// reglas de arriba, para que la forma y las reglas enseñen lo mismo.
 func BuildNormalizeQuantitiesPrompt(in NormalizeQuantitiesInput) string {
 	ref := in.MessageTS.UTC()
 	fecha := ref.Format(time.DateOnly)
@@ -213,6 +223,8 @@ Reglas:
 - Si el cliente no dijo cuántos, qty vale 1.
 - «Un paquete de 30» es qty 1 con unit_kind "package" y package_size 30. Nunca
   es qty 30.
+- Si es un paquete pero el cliente no dijo cuántas unidades trae, omite unit_kind
+  y package_size: no pongas 0 ni te inventes el tamaño.
 - Los rangos se conservan como rango: {"min": 10, "max": 12, "unit": "porciones"}.
   No los colapses a un número.
 - La fecha de referencia te la damos AL FINAL de este prompt, después del texto:
@@ -229,13 +241,15 @@ Esquema de la respuesta:
  "delivery_date": "AAAA-MM-DD",
  "delivery_date_basis": "message_ts=AAAA-MM-DD",
  "items": [{"product": "...", "qty": 1,
-            "range": {"min": 0, "max": 0, "unit": "..."},
-            "unit_kind": "package", "package_size": 0,
+            "range": {"min": 10, "max": 12, "unit": "porciones"},
+            "unit_kind": "package", "package_size": 30,
             "addon_candidates": ["..."], "customizations": ["..."],
             "notes": "...", "evidence": "..."}]}
 
 AAAA-MM-DD es el FORMATO, no un valor: en delivery_date_basis copia la fecha de
 referencia que aparece al final del prompt, con esa misma forma.
+Los números de range y package_size son un EJEMPLO de la forma, no un valor: pon
+los que dijo el cliente.
 Omite range, unit_kind y package_size cuando no apliquen. Omite delivery_date si
 el cliente no dijo cuándo.
 `, ArtifactVersion)

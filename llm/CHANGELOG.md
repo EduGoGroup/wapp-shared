@@ -5,6 +5,37 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Fixed
+
+- 🔴 **La plantilla de P4 imprimía lo que su propio validador rechaza** (Plan 044).
+  `BuildNormalizeQuantitiesPrompt` enseñaba en el esquema de salida
+  `"unit_kind": "package", "package_size": 0` y `"range": {"min": 0, "max": 0, "unit": "..."}`,
+  y eso es exactamente lo que rechazan `validarPaquete` (`package_size < 1` con
+  `unit_kind "package"`) y `validarRango` (`unit` de relleno y `min < 1`). **El modelo no
+  desobedecía: copiaba el ejemplo que se le daba.** La etapa fue **0 de 14** en su primer
+  día en campo. Ahora la plantilla lleva los MISMOS valores del ejemplo de sus reglas
+  (`package_size 30`, `{"min": 10, "max": 12, "unit": "porciones"}`), válidos para el
+  validador, más la coletilla de que esos números son un ejemplo de la forma.
+  - **La regla que ordena esto**: un `"..."` puede quedarse en la plantilla porque es un
+    relleno **RECONOCIBLE** —`PlaceholderEsquema` lo caza si el modelo lo ecoa—, pero un
+    `0` es indistinguible de un valor real: no se puede detectar, solo rechazar. **En la
+    plantilla no puede haber ningún valor numérico que su propio validador rechace.**
+  - Las claves opcionales **no** se sacan del esquema: `jsonOnlyRules` le ordena al modelo
+    «usa exactamente las claves del esquema, sin añadir ni quitar ninguna», así que una
+    clave ausente de la forma es una clave que el modelo no tiene permiso de emitir.
+
+### Added
+
+- **La regla gemela que faltaba en P4**: existía «si el cliente no dijo cuántos, `qty`
+  vale 1» y no existía su equivalente para el tamaño del paquete. Ahora el prompt dice
+  «*Si es un paquete pero el cliente no dijo cuántas unidades trae, omite `unit_kind` y
+  `package_size`: no pongas 0 ni te inventes el tamaño*» — que es la **única** salida que
+  el contrato ofrece: `validarPaquete` solo sale por arriba si `unit_kind` viene vacío.
+- `TestPlantillaDelPrompt_PasaSuPropioValidador`: test de **regla** sobre las **cinco**
+  etapas que extrae la plantilla del prompt con el `ExtractJSON` de producción, rellena
+  sus huecos reconocibles y exige que el `Parse*` de esa misma etapa la **acepte** (y que
+  cruda la siga **rechazando**). Las cinco pasan.
+
 ## [0.4.0] - 2026-08-25
 
 ### Changed
