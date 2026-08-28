@@ -33,6 +33,8 @@ go get github.com/EduGoGroup/wapp-shared/config
 | `ui` | Design tokens y componentes CSS del ecosistema servidos desde Go con `embed.FS`; los consumen la Consola Cloud BFF y la Edge Agent UI. | [README](ui/README.md) | [CHANGELOG](ui/CHANGELOG.md) |
 | `llm` | Puerto unico `LLMProvider` (un metodo por tarea del pipeline), prompts compartidos en espanol, parsers de artefactos versionados y la implementacion `llm/api` contra API externa (anthropic completo, gemini stub). | [README](llm/README.md) | [CHANGELOG](llm/CHANGELOG.md) |
 | `textmatch` | Motor determinista de comparacion de textos (normalizacion que preserva la ñ, distancia OSA, cascada Exact/Fuzzy y `SetMatcher`); la zona gris (LLM) se **inyecta**, el modulo no importa `llm`. | [README](textmatch/README.md) | [CHANGELOG](textmatch/CHANGELOG.md) |
+| `web` | Middleware web endurecido y compartido: nonce, CSP, CSRF, rate-limit, deadline, sesion, single-flight generico, CORS, trusted-proxies, body-limit y flash. Paquete raiz **solo stdlib**; `web/gin` (paquete `webgin`) es el adaptador delgado a Gin. Reconcilia los forks divergidos del BFF y la consola (Plan 047 · O0.5). | [README](web/README.md) | [CHANGELOG](web/CHANGELOG.md) |
+| `iam` | Cliente del plano de identidad: login contra identity, refresh, logout y canje a Context Token. El `system` es campo del cliente, no constante: el mismo cliente sirve a `wapp.bff` y a `wapp.platform` sin ramas. | [README](iam/README.md) | [CHANGELOG](iam/CHANGELOG.md) |
 
 ## Ingenieria de releases
 
