@@ -61,6 +61,26 @@ updates:
         patterns:
           - "*"
 
+  # ── web: el UNICO modulo con dependencias HTTP de terceros (Gin y su arbol).
+  # Por eso su cobertura aqui no es opcional: es el mayor superficie de CVE del monorepo.
+  - package-ecosystem: gomod
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: /iam
+    schedule:
+      interval: weekly
+    groups:
+      iam:
+        patterns:
+          - "*"
+
   # ── GitHub Actions (workflows del CI/release) ──
   - package-ecosystem: github-actions
     directory: /
