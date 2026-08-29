@@ -5,6 +5,51 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-28
+
+### Added
+
+- **Cookie efimera de un solo uso** (`onetime.go`): el transporte que faltaba para
+  un POST-Redirect-GET que emite un SECRETO. `OneTimeCookieOptions`,
+  `OneTimeCookie`, `ClearOneTimeCookie` y, en el adaptador Gin,
+  `SetOneTimeCookie` y `TakeOneTimeCookie`.
+  - Nace de M-10 de `CODE-REVIEW-2026-08-15` (consola de plataforma): la pantalla
+    del codigo de enrolamiento se renderizaba SOBRE el POST, asi que un F5
+    reenviaba el POST y emitia un codigo nuevo dejando el anterior huerfano y
+    vivo 24 h. Con PRG el secreto tiene que viajar del POST al GET siguiente, y
+    las dos vias que ya habia no servian: `FlashCatalog` va por query string (el
+    secreto acabaria en el log de acceso, en el `Referer` y en el historial) y
+    `SessionData` viaja en la cookie de sesion, que dura horas y va en todas las
+    peticiones del sitio.
+  - **NO cifra ni firma el valor, y es deliberado**: el destinatario del secreto
+    es exactamente quien tiene la cookie, y el secreto se le pinta en pantalla de
+    todas formas. Cifrar lo protegeria del propio destinatario; firmar detectaria
+    que se enganio a si mismo. Lo unico que compra la cookie es que el secreto no
+    pase por la URL, y eso lo da el transporte. Una llave aqui seria una llave que
+    custodiar y rotar sin cerrar ninguna fuga. La razon esta escrita en el
+    doc-comment del tipo, no solo aqui.
+  - `HttpOnly` va SIEMPRE y no es parametro (mismo criterio que `SessionCookie`).
+    `Secure` y `SameSite` siguen la config de cada consola via `SameSiteMode`.
+  - `Path` se acota a la PANTALLA destino y vacio NO se rellena a `/`: rellenarlo
+    convertiria un olvido del llamante en una cookie con secreto enviada en todas
+    las peticiones del sitio. Hay test que lo fija.
+  - `MaxAge` corto (60 s por defecto) como TOPE DE SEGURIDAD; quien la retira de
+    verdad es el GET que la consume. `TakeOneTimeCookie` lee y borra en UN SOLO
+    GESTO, y emite el borrado aunque no hubiera nada que leer: si colgara de una
+    rama, cualquier salida temprana del handler dejaria el secreto vivo en el
+    navegador. El criterio se prueba con un `cookiejar` real, no leyendo cabeceras.
+- **`EncodeCookiePayload` / `DecodeCookiePayload`** (`cookies.go`): empaquetado
+  JSON + base64 URL-safe sin padding para el valor de cualquier cookie con
+  contenido estructurado. El alfabeto no es decorativo: los adaptadores de
+  framework aplican `url.QueryUnescape` al leer, y un `+` del base64 estandar
+  volveria como espacio.
+
+### Changed
+
+- `EncodeSession`/`DecodeSession` pasan a delegar en `EncodeCookiePayload`/
+  `DecodeCookiePayload`. El empaquetado era el mismo y ahora vive una sola vez;
+  el valor de la cookie de sesion no cambia ni un byte.
+
 ## [0.1.0] - 2026-08-28
 
 ### Added
