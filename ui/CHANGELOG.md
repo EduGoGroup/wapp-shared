@@ -5,6 +5,144 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-28
+
+### Added
+
+- **Token `--wapp-color-on-success-container` (`#166534`) en `wapp-tokens.css`** —
+  cierra el cuarteto semantico de exito (`success` / `on-success` /
+  `success-container` / `on-success-container`), que hasta ahora solo estaba
+  completo en el de error. Es el color de texto para ir **sobre el container
+  claro**; `--wapp-color-on-success` (`#FFFFFF`) es el de ir sobre el verde
+  fuerte, y no son intercambiables. Va solo en `:root`: el bloque de modo oscuro
+  no redefine el par de error ni el container de exito, asi que tampoco este.
+  > Es **aditivo** (una variable nueva, ningun valor anterior cambia), pero lo
+  > estrena una version que ya es MINOR por el bloque de secretos.
+
+- **`wapp-components.css`: el bloque «secreto de un solo uso»** — `.wapp-secret-box`
+  (la caja monoespaciada con borde discontinuo donde se muestra el valor) y
+  `.wapp-secret-expiry` (el pie con su vencimiento). Nace de promover al modulo
+  compartido las clases locales `enrollment-code-box` / `enrollment-code-expiry`
+  de `wapp-platform-console`: el componente deja de ser «de enrolamiento» porque
+  ya tiene dos consumidores con secretos distintos —los codigos de enrolamiento
+  del Edge (consola de plataforma) y los enlaces de invitacion a personas
+  (consola de cliente, Plan 047)—, asi que el nombre no menciona ninguno de los
+  dos. Todo va por tokens de `wapp-tokens.css`; ningun valor en crudo salvo los
+  dos `font-size` en `rem`, como en el resto del fichero.
+  > **Conserva exactamente el tono de la copia local que sustituye**, valor a
+  > valor: texto y borde van por `var(--wapp-color-on-success-container)`, que es
+  > el `#166534` original, y el fondo sigue siendo el **blanco literal**
+  > `#FFFFFF`. Da **7,13:1**, AA para texto normal, **y el mismo numero en los dos
+  > temas**: nada del componente depende de `prefers-color-scheme`.
+  > 🔴 **El fondo es un literal A PROPOSITO — no lo tokenices.** `.wapp-secret-box`
+  > es de tono fijo de arriba abajo: se sirve dentro de un
+  > `.wapp-snackbar--success`, cuyo fondo (`--wapp-color-success-container`) no
+  > cambia con el tema, y su texto (`--wapp-color-on-success-container`) tampoco.
+  > Basta con que el fondo si lo siga para romper el par. Paso en una version
+  > intermedia de este mismo cambio: ese `#FFFFFF` se tokenizo como
+  > `var(--wapp-color-surface-card)` —el unico blanco de superficie que hay, y de
+  > los que el bloque oscuro **si** redefine—, y en modo oscuro el fondo se iba a
+  > `#161D1B` dejando el texto en **2,40:1**, por debajo incluso del 3:1 de texto
+  > grande. Tokenizar un literal que estaba deliberadamente fijo le cambio el
+  > comportamiento en silencio. Lo vigila `TestGetCSS_SecretBoxDeTonoFijo`.
+- **`.wapp-snackbar--roomy`** — modificador de `.wapp-snackbar` con el doble de
+  aire (`--wapp-space-6` / `--wapp-space-8`). Tambien vivia solo en el CSS local
+  de `wapp-platform-console` y lo necesita el bloque anterior, que se sirve
+  dentro de un snackbar de exito.
+
+- **`wapp-components.css`: el chip de estado** — `.wapp-chip` y sus cuatro
+  variantes `--success` / `--danger` / `--info` / `--neutral`. Promueve al modulo
+  las **dos** copias locales que ya existian y **no eran equivalentes**: `.badge`
+  de `wapp-platform-console` (con los colores en hexadecimal a mano) y `.chip` de
+  `wapp-client-console`. Las variantes se nombran por el **estado que comunican**,
+  no por el color, y cada una toma el par `*-container` / `on-*-container`
+  **completo** de su familia de tokens.
+  > 🔴 **Arregla un chip ilegible que estaba en campo.** `.chip--ok` de
+  > `wapp-client-console` pintaba `var(--wapp-color-on-success)` (`#FFFFFF`) sobre
+  > `var(--wapp-color-success-container)` (`#DCFCE7`): **1,10:1** —el mismo par de
+  > colores que el snackbar, asi que literalmente el mismo numero—, texto
+  > practicamente invisible, en la portada y en la pantalla de roles. Es el mismo
+  > fallo que `.wapp-snackbar--success` y la misma causa raiz —faltaba el token
+  > `on-*-container` de exito—, asi que `.wapp-chip--success` estrena el
+  > `--wapp-color-on-success-container` de esta misma version: **6,49:1**, AA.
+  > El gemelo de `wapp-platform-console` no lo tenia porque usaba un `#15803D`
+  > escrito a mano.
+  > Contrastes de las cuatro, **medidos en los dos temas**: `--success` 6,49:1 ·
+  > `--danger` 13,26:1 · `--info` 13,30:1, los tres identicos en claro y oscuro
+  > porque ninguno de sus tokens se redefine en `@media (prefers-color-scheme:
+  > dark)`; `--neutral` 7,22:1 en claro y 5,48:1 en oscuro, porque sus **dos**
+  > tokens (`surface-variant` / `on-surface-variant`) se redefinen **juntos**. Lo
+  > que rompe un componente es mezclar un token sensible al tema con un valor
+  > **fijo** —eso es lo que vigila `TestGetCSS_SecretBoxDeTonoFijo`—, no usar dos
+  > sensibles que viajan en pareja.
+
+- **`wapp-components.css`: `.wapp-btn--auto`, `.wapp-btn--compact` y
+  `.wapp-btn--danger`** — `.wapp-btn` nace con `width: 100%` (es el boton de un
+  formulario de login, que ocupa su tarjeta entera), y eso lo hacia inservible
+  para una accion **por fila**; las dos consolas resolvieron lo mismo por
+  separado. `--auto` suelta el ancho y `--compact` baja la talla, separados
+  porque son **ortogonales**; los nombres son los que `wapp-platform-console` ya
+  tiene en local, para que su migracion sea borrar lineas y no renombrar en sus
+  plantillas.
+  > `.wapp-btn--danger` va en el par **fuerte** (`--wapp-color-error` de fondo con
+  > `--wapp-color-on-error` de texto, **6,46:1**, AA, igual en los dos temas) y
+  > **no** en el par de container, que es el de `.wapp-chip--danger`. Es
+  > deliberado: en la tabla de invitaciones el boton «revocar» y el chip
+  > «revocada» comparten fila, y con los mismos colores no se distinguiria la
+  > accion del estado. Sustituye el `#DC2626` en crudo de la copia de
+  > `wapp-platform-console`, que **no** se migra en esta version (ver abajo).
+
+  > Es **aditivo**: no toca ninguna regla anterior, no anade ningun asset nuevo y
+  > `Assets`, `FS()` y `GetCSS` no cambian de firma. Aun asi amplia la superficie
+  > publica del modulo (once clases que los
+  > consumidores pasan a exigir: tres del bloque de secretos, cinco del chip y tres
+  > modificadores de boton) ⇒ **bump
+  > MINOR** (`0.3.0`), no patch.
+
+### Changed
+
+- 🔴 **`.wapp-snackbar--success` deja de ser ilegible**: su texto pasa de
+  `var(--wapp-color-on-success)` (`#FFFFFF`) a
+  `var(--wapp-color-on-success-container)` (`#166534`). Sobre su propio fondo
+  (`--wapp-color-success-container`, `#DCFCE7`) el blanco daba **1,10:1** —texto
+  invisible— y el verde oscuro da **6,49:1**, AA para texto normal. La causa raiz
+  era el token que faltaba: sin gemelo `on-*-container` de exito, la regla echo
+  mano del `on-success` que si existia. Afecta a los avisos de exito de
+  `wapp-client-console` (`partials/flashes.html`, `pages/login.html`), que hoy
+  salen en blanco sobre verde claro. `wapp-platform-console` no lo notaba porque
+  lo tapaba con un override local, que se retira con este cambio.
+
+- `ui_test.go` estrena `TestGetCSS_ComponentesPublicados`, que assertea la
+  presencia de las tres clases en el contenido del CSS. Es el unico gate posible:
+  una clase que desaparece no rompe la compilacion de ningun consumidor —solo
+  sirve la pagina sin estilo, en silencio. Se le suman tres gates mas,
+  todos sobre el mismo hecho —el CSS no lo compila nadie—:
+  `TestGetCSS_ParSemanticoDeExitoCompleto` (los cuatro tokens de exito existen),
+  `TestGetCSS_SnackbarSuccessLegible` (el snackbar no vuelve al blanco) y
+  `TestGetCSS_SecretBoxDeTonoFijo` (el fondo de la caja de secreto no depende de
+  ningun token que el modo oscuro redefina; la lista de prohibidos se deriva del
+  propio bloque `@media` de `wapp-tokens.css`, no se escribe a mano). Los tres se
+  verificaron mutando el CSS: caen.
+
+- `ui_test.go` suma `TestGetCSS_ParesDeColorPorComponente`, que comprueba **regla
+  a regla** que cada componente use el par de color completo de su familia y no lo
+  cruce: el `prohibido` de cada fila es el `on-*` del **otro** par, que es justo el
+  que se cuela cuando alguien tira del token que le suena. Cubre las cuatro
+  variantes del chip y `.wapp-btn--danger`. Verificado con **tres mutaciones
+  ejecutadas** —devolver `.wapp-chip--success` a `--wapp-color-on-success`, borrar
+  el bloque `.wapp-chip--neutral` y cruzar el texto de `.wapp-btn--danger` a
+  `--wapp-color-on-error-container`—: las tres lo ponen rojo.
+
+- ⚠️ **`wapp-platform-console` NO se migra en esta version.** Sus `.badge--*` (11
+  usos) y sus `.wapp-btn--danger` / `--auto` / `--compact` locales siguen en su
+  `app.css`, que se carga **despues** del compartido, asi que su aspecto no cambia.
+  Cuando se migre, `.wapp-btn--danger` pasara de `#DC2626` a
+  `var(--wapp-color-error)` (`#BA1A1A`) y `--compact` de `0.375rem 0.75rem` a los
+  tokens: es un cambio de tono, no de semantica. Su `.badge--warning` es lo unico
+  que **no** tiene sitio todavia: el cuarteto de warning sigue incompleto (falta
+  `--wapp-color-on-warning-container`), asi que no se promovio ninguna variante de
+  aviso.
+
 ## [0.2.0] - 2026-08-15
 
 ### Added

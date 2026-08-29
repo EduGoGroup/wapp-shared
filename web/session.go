@@ -1,8 +1,6 @@
 package web
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"time"
 )
 
@@ -15,28 +13,19 @@ type SessionData struct {
 	ExpiresAt    string `json:"e,omitempty"`
 }
 
-// EncodeSession serializa la sesión al valor de la cookie (base64 URL-safe sin
-// padding, que es seguro dentro de una cookie sin escapes).
+// EncodeSession serializa la sesión al valor de la cookie. El empaquetado
+// (JSON + base64 URL-safe sin padding, que es seguro dentro de una cookie sin
+// escapes) es el MISMO que usa cualquier otra cookie con contenido estructurado
+// de este módulo: vive una sola vez, en EncodeCookiePayload.
 func EncodeSession(s SessionData) (string, error) {
-	// #nosec G117 -- serializar los tokens es justo lo que hace esta función: el
-	// resultado va DENTRO de la cookie de sesión, que es HttpOnly. No se loguea
-	// ni se persiste en ningún otro sitio.
-	raw, err := json.Marshal(s)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
+	return EncodeCookiePayload(s)
 }
 
 // DecodeSession revierte EncodeSession.
 func DecodeSession(value string) (SessionData, error) {
 	var s SessionData
-	raw, err := base64.RawURLEncoding.DecodeString(value)
-	if err != nil {
-		return s, err
-	}
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return s, err
+	if err := DecodeCookiePayload(value, &s); err != nil {
+		return SessionData{}, err
 	}
 	return s, nil
 }

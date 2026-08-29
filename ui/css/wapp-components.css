@@ -138,6 +138,37 @@
   filter: brightness(1.1);
 }
 
+/* Modificadores para usar el boton como accion de FILA o de barra. `.wapp-btn` nace de ancho
+   completo —es el boton de un formulario de login, que ocupa su tarjeta entera—, y eso lo hace
+   inservible dentro de una celda o junto a otro. Van separados porque son ortogonales: `--auto`
+   solo suelta el ancho y `--compact` solo baja la talla; una accion por fila («revocar», «dar de
+   baja») lleva las dos. Los nombres son los que `wapp-platform-console` ya tiene en local, para
+   que su migracion sea borrar cuatro lineas y no renombrar en sus plantillas. */
+.wapp-btn--auto {
+  width: auto;
+}
+
+.wapp-btn--compact {
+  padding: var(--wapp-space-2) var(--wapp-space-4);
+  font-size: 0.875rem;
+}
+
+/* Accion DESTRUCTIVA (revocar una invitacion, dar de baja a una persona). Va en el par FUERTE
+   —`--wapp-color-error` de fondo con `--wapp-color-on-error` de texto, 6,46:1, AA— y NO en el par
+   de container, que es el que usa `.wapp-chip--danger`. La distincion es deliberada: en la tabla
+   de invitaciones el boton «revocar» y el chip «revocada» comparten fila, y si compartieran
+   ademas los colores no se distinguiria la accion del estado. Ninguno de los dos tokens se
+   redefine en `@media (prefers-color-scheme: dark)`, asi que el numero es el mismo en los dos
+   temas. Va DESPUES de `--filled` a proposito: si alguien escribe las dos clases, gana el rojo. */
+.wapp-btn--danger {
+  background-color: var(--wapp-color-error);
+  color: var(--wapp-color-on-error);
+}
+
+.wapp-btn--danger:hover {
+  filter: brightness(1.1);
+}
+
 /* --- Alertas y Snackbars --- */
 .wapp-snackbar {
   padding: var(--wapp-space-3) var(--wapp-space-4);
@@ -154,6 +185,83 @@
 
 .wapp-snackbar--success {
   background-color: var(--wapp-color-success-container);
-  color: var(--wapp-color-on-success);
+  color: var(--wapp-color-on-success-container);
   border: 1px solid var(--wapp-color-success);
+}
+
+.wapp-snackbar--roomy {
+  padding: var(--wapp-space-6);
+  margin-bottom: var(--wapp-space-8);
+}
+
+/* --- Chip de estado (la palabra que califica una fila: «canjeada», «revocada», «caducada») --- */
+/* Promovido de las DOS copias locales que ya existian y no eran equivalentes: `.badge` de
+   `wapp-platform-console` (hexes crudos) y `.chip` de `wapp-client-console`. Las variantes se
+   nombran por el ESTADO que comunican, y cada una toma el par `*-container` / `on-*-container`
+   COMPLETO de su familia: el fondo tonal y el texto calculado para ir encima. Nunca el `on-*` del
+   color fuerte, que esta pensado para el tono saturado y sobre el claro no contrasta. */
+.wapp-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--wapp-space-1) var(--wapp-space-3);
+  border-radius: var(--wapp-radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* El texto va por `on-success-CONTAINER` (`#166534`), no por `on-success` (`#FFFFFF`): eso era
+   exactamente el bug de la copia local de `wapp-client-console`, blanco sobre `#DCFCE7` = 1,10:1,
+   un chip invisible que estaba EN CAMPO. Con el `on-container` son 6,49:1 (AA), y el mismo numero
+   en los dos temas: ni el container ni su `on-` se redefinen en modo oscuro. Lo vigila
+   `TestGetCSS_ParesDeColorPorComponente`, que ademas prohibe el token que lo rompia. */
+.wapp-chip--success {
+  background-color: var(--wapp-color-success-container);
+  color: var(--wapp-color-on-success-container);
+}
+
+.wapp-chip--danger {
+  background-color: var(--wapp-color-error-container);
+  color: var(--wapp-color-on-error-container);
+}
+
+.wapp-chip--info {
+  background-color: var(--wapp-color-brand-container);
+  color: var(--wapp-color-brand-on-container);
+}
+
+/* El unico par que SI sigue al tema, y por eso es seguro: sus dos tokens se redefinen JUNTOS en
+   `@media (prefers-color-scheme: dark)` — 7,22:1 en claro y 5,48:1 en oscuro. Lo que rompe un
+   componente es mezclar un token sensible al tema con un valor FIJO (ver `.wapp-secret-box`), no
+   usar dos sensibles que viajan en pareja. */
+.wapp-chip--neutral {
+  background-color: var(--wapp-color-surface-variant);
+  color: var(--wapp-color-on-surface-variant);
+}
+
+/* --- Secreto de un solo uso (código, enlace o token que no se vuelve a mostrar) --- */
+/* El fondo es un literal a proposito, NO `--wapp-color-surface-card`: este componente es
+   de tono fijo de arriba abajo. Se sirve dentro de un `.wapp-snackbar--success`, cuyo fondo
+   (`--wapp-color-success-container`) tampoco cambia con el tema, y su texto es el
+   `on-success-container`, que tampoco. Un token sensible a `prefers-color-scheme` aqui
+   rompe el par con su propio texto: en modo oscuro el fondo se iria a `#161D1B` y el verde
+   `#166534` caeria a 2,40:1 — por debajo incluso del 3:1 de texto grande. Con el blanco
+   fijo son 7,13:1 en los dos temas. No lo tokenices: la version local que este bloque
+   sustituyo ya lo tenia fijo, y tokenizarlo fue lo que introdujo la regresion. */
+.wapp-secret-box {
+  background-color: #FFFFFF;
+  color: var(--wapp-color-on-success-container);
+  border: 1px dashed var(--wapp-color-on-success-container);
+  border-radius: var(--wapp-radius-sm);
+  padding: var(--wapp-space-4);
+  font-family: var(--wapp-font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.wapp-secret-expiry {
+  margin-top: var(--wapp-space-2);
+  font-size: 0.75rem;
+  opacity: 0.8;
 }

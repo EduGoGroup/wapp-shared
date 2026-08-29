@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -90,4 +92,34 @@ func SessionCookie(opts SessionCookieOptions, value string, maxAge int) *http.Co
 		HttpOnly: true,
 		SameSite: opts.Mode(),
 	}
+}
+
+// EncodeCookiePayload empaqueta un valor estructurado en una cadena apta para el
+// VALOR de una cookie: JSON y encima base64 URL-safe sin padding.
+//
+// El alfabeto no es decorativo. El base64 estándar trae '+', '/' y '='; los
+// adaptadores de framework que leen cookies (por ejemplo gin.Context.Cookie)
+// aplican url.QueryUnescape al valor, y ahí un '+' se convertiría en un espacio y
+// un '%' en basura. Con el alfabeto URL-safe lo que se escribe y lo que se lee es
+// byte a byte lo mismo.
+//
+// NO cifra ni firma, y eso es una decisión: ver el doc de OneTimeCookieOptions
+// para el caso del secreto de un solo uso, y el de SessionData para la sesión.
+func EncodeCookiePayload(v any) (string, error) {
+	// #nosec G117 -- serializar el contenido es justo lo que hace esta función:
+	// el resultado va DENTRO de una cookie HttpOnly. No se loguea ni se persiste.
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// DecodeCookiePayload revierte EncodeCookiePayload sobre el puntero dado.
+func DecodeCookiePayload(value string, v any) error {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, v)
 }
