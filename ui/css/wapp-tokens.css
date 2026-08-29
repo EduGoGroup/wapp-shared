@@ -47,6 +47,21 @@
   --wapp-color-border-variant: #BEC9C4;
   --wapp-color-surface-card: #FFFFFF;
 
+  /* --- Enlace (texto de un `<a>`) --- */
+  /* Token PROPIO, y NO `--wapp-color-brand-primary`, aunque en claro valgan lo mismo. La marca
+     `#006A60` se usa de FONDO en los botones rellenos, con `--wapp-color-brand-on-primary` blanco
+     encima; si se redefiniera en oscuro habría que mover también el `on-`, y los botones se
+     invertirían. Un enlace es lo contrario: es TEXTO sobre las superficies del tema, así que
+     necesita seguir al tema. Con la marca de texto en oscuro salían 2,64:1 sobre `surface-card`,
+     2,85:1 sobre `bg` y 1,43:1 sobre `surface-variant` — los tres por debajo de AA.
+     Medidos en navegador contra las superficies reales de los dos temas:
+       claro  `#006A60` → 6,50 card · 6,35 bg · 5,04 variant
+       oscuro `#53DBC9` → 10,07 card · 10,87 bg · 5,48 variant
+     Va en los DOS bloques a propósito: un token de color que existe en un tema y no en el otro es
+     el defecto que ya nos mordió con `--wapp-color-on-success-container`. Lo vigila
+     `TestGetCSS_TokensDeTextoDefinidosEnLosDosTemas`. */
+  --wapp-color-link: #006A60;
+
   /* --- Tipografía --- */
   --wapp-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --wapp-font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -85,5 +100,6 @@
     --wapp-color-border: #899390;
     --wapp-color-border-variant: #3F4946;
     --wapp-color-surface-card: #161D1B;
+    --wapp-color-link: #53DBC9;
   }
 }

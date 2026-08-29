@@ -5,6 +5,58 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-29
+
+### Added
+
+- **Token `--wapp-color-link`, y esta vez SI en los dos temas** (`#006A60` en
+  `:root`, `#53DBC9` en `@media (prefers-color-scheme: dark)`). Nace de un
+  defecto medido en campo, no de una revision de estilo: `.link-list__link` de
+  `wapp-client-console` usaba `--wapp-color-brand-primary` como color de TEXTO, y
+  ese token **no se redefine en oscuro**, asi que daba **2,64:1** sobre
+  `surface-card`, **2,85:1** sobre `bg` y **1,43:1** sobre `surface-variant` — por
+  debajo incluso del 3:1 de texto grande. Los valores nuevos se eligieron
+  midiendo contra las superficies reales de cada tema: claro 6,50 / 6,35 / 5,04;
+  oscuro 10,07 / 10,87 / 5,48. Todas AA.
+  > **`--wapp-color-brand-primary` NO se toca**, a proposito. Los botones
+  > rellenos lo usan de FONDO con `--wapp-color-brand-on-primary` encima y miden
+  > 6,50:1 en los dos temas: cambiarlo en oscuro obligaria a mover tambien
+  > `on-primary` e invertiria el boton. La distincion que importa la enseño este
+  > defecto: `brand-primary` es seguro como texto en `.wapp-brand-badge`, que
+  > declara su PROPIO fondo fijo, e inseguro en `.link-list__link`, que no
+  > declaraba fondo y flotaba sobre la superficie del tema.
+
+- **`wapp-components.css`: regla base para el elemento `a`** — `color:
+  var(--wapp-color-link)`. Es el UNICO selector de elemento del fichero, y es
+  deliberado: una clase `.wapp-link` no puede alcanzar al enlace que nadie
+  clasifico, que era justo el defecto (dos `<a href>` sin clase en la consola de
+  cliente caian al azul por defecto del navegador, `#0000EE`, **1,82:1** sobre el
+  fondo oscuro). Su especificidad (0-0-1) es la minima posible: no pisa ninguna
+  clase, y en los tres layouts el `app.css` de cada consola carga despues.
+
+- **`wapp-components.css`: `.wapp-snackbar :is(h1, h2, h3, h4, h5, h6) { color:
+  inherit; }`** — un encabezado dentro de un snackbar toma el color del
+  contenedor. Cierra una CLASE de defecto, no una instancia: vale para
+  `--success` y `--error` y para las tres consolas. El caso que lo destapo era
+  `<h2 class="section-title">` dentro de un `.wapp-snackbar--success`, donde
+  `.section-title` traia su propio `color: var(--wapp-color-on-surface)` y pisaba
+  al heredado — **1,18:1** en modo oscuro. La especificidad de `:is()` (0-1-1)
+  gana a una clase suelta (0-1-0), asi que **no hubo que tocar ningun markup**.
+
+### Tests
+
+- **`TestGetCSS_TokensDeTextoDefinidosEnLosDosTemas`** — el candado que faltaba.
+  No comprueba valores: **deriva del propio CSS** que tokens se usan como valor
+  de una declaracion `color:` y exige que esten definidos en los DOS temas, con
+  una lista de excepciones EXPLICITA para los siete que son monotema a proposito
+  (los `on-*` de error y exito, `brand-on-primary`, …), cada uno con su razon.
+  La lista se vigila a si misma: si una excepcion deja de usarse, o pasa a estar
+  en los dos temas, el test falla y la lista encoge. Es el mismo fallo que ya
+  costo el `--wapp-color-on-success-container` de la `0.3.0`; ahora no puede
+  repetirse en silencio.
+- **`TestGetCSS_EncabezadoDentroDeSnackbarHereda`** — vigila que la regla de
+  encabezados siga existiendo.
+
 ## [0.3.0] - 2026-08-28
 
 ### Added

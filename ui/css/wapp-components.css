@@ -2,6 +2,22 @@
    wApp Components — Estilos Reutilizables del Ecosistema
    ========================================================================== */
 
+/* --- Base: enlaces --- */
+/* ÚNICA regla de este fichero que no cuelga de una clase `.wapp-*`, y es deliberado: el defecto
+   que cierra es justamente el del enlace que NADIE clasificó. Una regla `.wapp-link` no puede
+   alcanzarlo —haría falta que alguien se acordara de ponerla— y sin ninguna regla para `a` el
+   navegador pinta su azul por defecto `#0000EE`, que en modo oscuro da 1,82:1. Pasó en campo, en
+   dos plantillas de `wapp-client-console` (Plan 047 · Ola A).
+   Su especificidad es 0-0-1, la más baja que existe, así que NO pisa nada: toda clase de las
+   consolas sigue ganando (`.link-list__link`, `.btn`, `.app-bar__brand`, `.wapp-btn--filled`
+   sobre un `<a>`), y `wapp-guardian-bff`, que declara su propio `a{color:inherit}` en su `app.css`
+   —cargado DESPUÉS de esta hoja en los tres layouts— conserva su comportamiento intacto.
+   No se toca `text-decoration`: el subrayado por defecto del navegador es señal de accesibilidad
+   y quitarlo dejaría el enlace distinguible solo por color. */
+a {
+  color: var(--wapp-color-link);
+}
+
 /* --- Layout de Autenticación y Tarjetas --- */
 .wapp-auth-container {
   display: flex;
@@ -192,6 +208,19 @@
 .wapp-snackbar--roomy {
   padding: var(--wapp-space-6);
   margin-bottom: var(--wapp-space-8);
+}
+
+/* Un snackbar fija SU color de texto (`on-error-container` / `on-success-container`, ambos de tono
+   fijo) y cuenta con que todo lo de dentro lo herede. Un encabezado no hereda si alguien le pone
+   una clase que traiga `color` propio: `.section-title` de `wapp-client-console` lleva
+   `--wapp-color-on-surface`, y en oscuro eso puso texto casi blanco sobre el verde claro fijo del
+   contenedor — 1,18:1, medido en campo (Plan 047 · Ola A, `invitaciones.html`).
+   La regla mata la CLASE de defecto y no la instancia: vale para `--success` y para `--error`, para
+   los seis niveles de encabezado y para las tres consolas. Gana por especificidad (0-1-1 frente al
+   0-1-0 de la clase suelta) esté donde esté esa clase en la cascada. `inherit` y no un token: el
+   encabezado debe tomar el color del CONTENEDOR, sea cual sea la variante. */
+.wapp-snackbar :is(h1, h2, h3, h4, h5, h6) {
+  color: inherit;
 }
 
 /* --- Chip de estado (la palabra que califica una fila: «canjeada», «revocada», «caducada») --- */
