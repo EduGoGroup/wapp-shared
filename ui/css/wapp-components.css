@@ -219,8 +219,25 @@ a {
    los seis niveles de encabezado y para las tres consolas. Gana por especificidad (0-1-1 frente al
    0-1-0 de la clase suelta) esté donde esté esa clase en la cascada. `inherit` y no un token: el
    encabezado debe tomar el color del CONTENEDOR, sea cual sea la variante. */
-.wapp-snackbar :is(h1, h2, h3, h4, h5, h6) {
+.wapp-snackbar :is(h1, h2, h3, h4, h5, h6, a) {
   color: inherit;
+}
+
+/* El enlace entra en la regla de arriba, y ademas se subraya SIEMPRE dentro de un snackbar.
+   Los dos motivos son distintos y los dos importan:
+   (1) CONTRASTE. La regla base `a { color: var(--wapp-color-link) }` de este mismo fichero le da
+       un color que SIGUE AL TEMA (#006A60 / #53DBC9), pero el fondo del snackbar es de tono FIJO.
+       En oscuro eso ponia el teal claro sobre el verde claro: 1,55:1, medido en campo el
+       2026-08-29. Es el mismo par mixto —color sensible al tema sobre fondo que no lo es— que ya
+       nos costo `on-success-container` y `.link-list__link`, y esta vez lo introdujimos NOSOTROS
+       al anadir la regla base en la 0.4.0. No habia ningun `<a>` dentro de un snackbar en las tres
+       consolas cuando se detecto: se corrige la trampa, no un sintoma.
+   (2) IDENTIFICABILIDAD (WCAG 1.4.1). Al heredar, el enlace pasa a tener EXACTAMENTE el color del
+       texto que lo rodea. Sin subrayado dejaria de distinguirse por otra cosa que no fuera el
+       color, que es justo lo que la pauta prohibe. El subrayado no es adorno: es lo que hace
+       legitimo el `inherit`. */
+.wapp-snackbar a {
+  text-decoration: underline;
 }
 
 /* --- Chip de estado (la palabra que califica una fila: «canjeada», «revocada», «caducada») --- */

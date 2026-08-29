@@ -298,7 +298,10 @@ func TestGetCSS_EncabezadoDentroDeSnackbarHereda(t *testing.T) {
 	require.NotEmpty(t, selectoresQueHeredan,
 		"wapp-components.css debe declarar una regla dentro de `.wapp-snackbar` con `color: inherit`: sin ella cualquier clase con `color` propio pisa el color del contenedor y el texto deja de contrastar")
 
-	for _, nivel := range []string{"h1", "h2", "h3", "h4", "h5", "h6"} {
+	// El enlace va en la MISMA lista que los encabezados, y no por simetria: la regla base
+	// `a { color: var(--wapp-color-link) }` le da un color que SIGUE AL TEMA, y el fondo del
+	// snackbar es de tono fijo. Sin heredar, en oscuro daba 1,55:1 (medido en campo 2026-08-29).
+	for _, nivel := range []string{"h1", "h2", "h3", "h4", "h5", "h6", "a"} {
 		hueco := regexp.MustCompile(`\b` + nivel + `\b`)
 		cubierto := false
 		for _, selector := range selectoresQueHeredan {
@@ -310,6 +313,22 @@ func TestGetCSS_EncabezadoDentroDeSnackbarHereda(t *testing.T) {
 		assert.True(t, cubierto,
 			"<%s> dentro de un `.wapp-snackbar` debe heredar el color del contenedor: hoy lo cubren %v", nivel, selectoresQueHeredan)
 	}
+
+	// Heredar el color deja al enlace EXACTAMENTE del color del texto que lo rodea. Si ademas no
+	// se subraya, deja de distinguirse por otra cosa que no sea el color — que es justo lo que
+	// prohibe WCAG 1.4.1. El subrayado es lo que hace legitimo el `inherit` de arriba, asi que
+	// los dos se vigilan juntos: quitar uno sin el otro tiene que caer.
+	subrayado := false
+	for _, regla := range reglasCSS.FindAllStringSubmatch(sinComentarios(string(content)), -1) {
+		selector, cuerpo := strings.TrimSpace(regla[1]), regla[2]
+		if strings.Contains(selector, ".wapp-snackbar") && strings.Contains(selector, "a") &&
+			strings.Contains(cuerpo, "text-decoration") && strings.Contains(cuerpo, "underline") {
+			subrayado = true
+			break
+		}
+	}
+	assert.True(t, subrayado,
+		"un `<a>` dentro de un `.wapp-snackbar` hereda el color del contenedor, asi que necesita `text-decoration: underline` para seguir siendo identificable sin depender del color (WCAG 1.4.1)")
 }
 
 // --- Utilidades de lectura del CSS ---

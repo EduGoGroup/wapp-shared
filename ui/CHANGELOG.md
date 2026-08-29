@@ -5,6 +5,29 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-29
+
+### Fixed
+
+- **El enlace dentro de un snackbar hereda el color del contenedor, y se
+  subraya.** La regla base `a { color: var(--wapp-color-link) }` que estreno la
+  `0.4.0` le da al enlace un color que SIGUE AL TEMA, pero el fondo de un
+  snackbar es de tono FIJO. En oscuro eso ponia el teal claro `#53DBC9` sobre el
+  verde claro `#DCFCE7`: **1,55:1**, medido en Chrome contra UAT el mismo dia de
+  publicar la `0.4.0`.
+  > Es el **mismo par mixto** —color sensible al tema sobre fondo que no lo es—
+  > que ya costo el `--wapp-color-on-success-container` de la `0.3.0` y el
+  > `.link-list__link` de la `0.4.0`. La diferencia es que esta vez **lo
+  > introdujimos nosotros** al anadir la regla base. Cuando se detecto **no habia
+  > ni un `<a>` dentro de un snackbar** en las tres consolas: se corrige la
+  > trampa antes de que tenga victima, no un sintoma.
+  >
+  > El subrayado **no es adorno**: al heredar, el enlace queda exactamente del
+  > color del texto que lo rodea, y sin subrayar dejaria de distinguirse por otra
+  > cosa que no fuera el color — justo lo que prohibe **WCAG 1.4.1**. Es lo que
+  > hace legitimo el `inherit`, y por eso el test vigila los dos juntos: quitar
+  > uno sin el otro cae en rojo.
+
 ## [0.4.0] - 2026-08-29
 
 ### Added
