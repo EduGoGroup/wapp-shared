@@ -5,6 +5,20 @@ y [Versionado Semantico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-01
+
+### Added
+
+- **`.wapp-btn--outlined` y `.wapp-caption`.** Las usaba ya `wapp-edge-agent` en su login
+  (`internal/webui/login.html`) sobre un fork local de estos mismos tokens, sin definirlas —el
+  botón «Volver al inicio» y la leyenda «¿No tienes cuenta? » se pintaban sin estilo (deuda **U-2**
+  de `edge/wapp-edge-agent/documentations/deuda.md`). `.wapp-btn--outlined` usa
+  `--wapp-color-on-surface` como texto, nunca `--wapp-color-brand-primary`: este último es un token
+  FIJO pensado para ir de fondo en `--filled`, y usado como texto sobre la superficie del tema es
+  el mismo par que ya falló en oscuro con el enlace (ver `--wapp-color-link` en
+  `wapp-tokens.css`). Es la tarea que además cablea `wapp-edge-agent` al módulo `ui` por primera
+  vez, cerrando la divergencia de tema que documentaba el análisis de sesión del 2026-09-01.
+
 ## [0.4.1] - 2026-08-29
 
 ### Fixed

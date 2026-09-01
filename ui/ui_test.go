@@ -42,9 +42,11 @@ func TestFS_Subdirectory(t *testing.T) {
 // TestGetCSS_ComponentesPublicados fija el contrato que los consumidores no pueden
 // compilar: una clase CSS que desaparece no rompe ningún build ni ningún test del
 // consumidor, solo sirve la página sin estilo. Estas son las que hoy tienen consumidor
-// externo declarado: el bloque de «secreto de un solo uso» de las consolas, y el chip de
-// estado con sus cuatro variantes y los modificadores de botón que `wapp-client-console`
-// consume desde que dejó de tener copia local (listado de invitaciones, Plan 047).
+// externo declarado: el bloque de «secreto de un solo uso» de las consolas, el chip de
+// estado con sus cuatro variantes, los modificadores de botón que `wapp-client-console`
+// consume desde que dejó de tener copia local (listado de invitaciones, Plan 047), y
+// `.wapp-btn--outlined`/`.wapp-caption`, que consume `wapp-edge-agent` desde que su login
+// dejó de forkear estos tokens a mano (deuda U-2 de `edge/wapp-edge-agent/documentations/deuda.md`).
 func TestGetCSS_ComponentesPublicados(t *testing.T) {
 	content, err := ui.GetCSS("wapp-components.css")
 	require.NoError(t, err)
@@ -61,6 +63,8 @@ func TestGetCSS_ComponentesPublicados(t *testing.T) {
 		".wapp-btn--auto",
 		".wapp-btn--compact",
 		".wapp-btn--danger",
+		".wapp-btn--outlined",
+		".wapp-caption",
 	} {
 		assert.Contains(t, string(content), class,
 			"wapp-components.css debe publicar %s: lo consumen las consolas para mostrar un secreto de un solo uso", class)

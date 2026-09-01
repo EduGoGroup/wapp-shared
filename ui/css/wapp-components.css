@@ -75,6 +75,12 @@ a {
   color: var(--wapp-color-on-surface-variant);
 }
 
+/* --- Texto auxiliar (leyenda corta junto a una acción, p.ej. «¿No tienes cuenta? ») --- */
+.wapp-caption {
+  font-size: 0.85rem;
+  color: var(--wapp-color-on-surface-variant);
+}
+
 /* --- Formulario y Stack --- */
 .wapp-form-stack {
   display: flex;
@@ -183,6 +189,24 @@ a {
 
 .wapp-btn--danger:hover {
   filter: brightness(1.1);
+}
+
+/* Accion SECUNDARIA de contorno (p.ej. «volver al inicio» tras un estado terminal). Fondo
+   transparente para no competir con `--filled` en la misma pantalla. El texto va en
+   `--wapp-color-on-surface`, NUNCA en `--wapp-color-brand-primary`: este ultimo es un token FIJO
+   pensado para ir de FONDO en `--filled` con su propio `on-primary` encima, y usado como texto
+   sobre la superficie del tema es exactamente el par que ya fallo en oscuro con el enlace
+   (2,64:1 sobre `surface-card`, ver el comentario de `--wapp-color-link` en `wapp-tokens.css`).
+   Borde y texto se redefinen JUNTOS en `@media (prefers-color-scheme: dark)`, como
+   `.wapp-chip--neutral`: es el patron seguro de este fichero. */
+.wapp-btn--outlined {
+  background-color: transparent;
+  color: var(--wapp-color-on-surface);
+  border: 1px solid var(--wapp-color-border);
+}
+
+.wapp-btn--outlined:hover {
+  background-color: var(--wapp-color-surface-variant);
 }
 
 /* --- Alertas y Snackbars --- */
