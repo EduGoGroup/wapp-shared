@@ -31,7 +31,7 @@ import (
 // 🔴 ESTE PAQUETE NO LEE FICHEROS, y es deliberado: una librería compartida que
 // abre rutas se vuelve imposible de testear y arrastra el sistema de ficheros a
 // todos sus consumidores. Aquí solo entra TEXTO ya leído. Quien lo lee del disco
-// es el cloud (`internal/prompts`), que es el único que tiene un directorio y un
+// es el cloud (`internal/modulos/inferencia/prompts`), que es el único que tiene un directorio y un
 // ciclo de arranque donde fallar ruidosamente.
 //
 // QUÉ ETAPAS SE AJUSTAN POR AQUÍ, y por qué P1 no está:
