@@ -25,7 +25,7 @@ y [Versionado Semantico](https://semver.org/lang/es/).
     prefill, que es el coste dominante de estas etapas.
   - 🔴 **ESTE MÓDULO NO LEE FICHEROS**, a propósito: una librería compartida que abre rutas
     arrastra el sistema de ficheros a todos sus consumidores. Aquí solo entra texto ya leído.
-    Quien lo lee del disco es el cloud (`internal/prompts`).
+    Quien lo lee del disco es el cloud (`internal/prompts`) [hoy `internal/modulos/inferencia/prompts`].
   - **P1 NO está, y no es un olvido**: su prompt lo gobierna el catálogo de intenciones del
     tenant, que YA se edita por API (`PUT /api/v1/intents`). Meterlo aquí le daría dos fuentes
     de verdad al mismo texto.
